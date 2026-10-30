@@ -5,23 +5,30 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ORBIT — Social Universe</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
 <style>
 :root{--ui:#e9ecff;--mut:#8b91b8;--c:#ffb347}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;color:var(--ui);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{background:radial-gradient(120% 90% at 50% 40%,#10122b 0%,#070815 55%,#03040a 100%)}
-canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;display:block}
+
+/* ── EPIC LOADING BLUR ── */
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;display:block;transition:filter 2s cubic-bezier(0.16,1,0.3,1),transform 2s cubic-bezier(0.16,1,0.3,1)}
 canvas.drag{cursor:grabbing}
 canvas.hit{cursor:pointer}
-.top{position:fixed;top:0;left:0;right:0;padding:calc(12px + env(safe-area-inset-top)) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:5}
+body.booting{cursor:wait}
+body.booting canvas{filter:blur(24px) brightness(0.6);transform:scale(1.1);pointer-events:none}
+body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
+
+.top{position:fixed;top:0;left:0;right:0;padding:calc(12px + env(safe-area-inset-top)) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:5;transition:opacity 1.5s ease}
 .brand b{font-size:18px;letter-spacing:.32em;font-weight:800;text-shadow:0 0 18px rgba(255,170,80,.6)}
-.brand small{display:block;color:var(--mut);font-size:11px;margin-top:4px;letter-spacing:.04em;max-width:190px;line-height:1.35;transition:opacity .5s}
+.brand small{display:block;color:var(--mut);font-size:11px;margin-top:4px;letter-spacing:.04em;max-width:190px;line-height:1.35}
 .tools{display:flex;gap:6px;pointer-events:auto}
 .btn{background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:6px 11px;font:600 12px system-ui;backdrop-filter:blur(8px);cursor:pointer;transition:all .2s}
 .btn:hover{border-color:#ffd27a;color:#ffd27a}
 .btn.connected{border-color:#22c55e;color:#22c55e;box-shadow:0 0 10px rgba(34,197,94,0.3)}
 .btn.verified-x{border-color:#1d9bf0;color:#1d9bf0;box-shadow:0 0 10px rgba(29,155,240,0.3)}
-.dock{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:4;scrollbar-width:none;transition:transform .35s,opacity .35s}
+.dock{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:4;scrollbar-width:none;transition:transform .35s,opacity 1.5s ease}
 .dock::-webkit-scrollbar{display:none}
 .dock.hide{transform:translateY(120%);opacity:0;pointer-events:none}
 .chip{flex:none;display:flex;align-items:center;gap:7px;background:rgba(14,17,38,.78);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:5px 12px 5px 5px;font:600 13px system-ui;backdrop-filter:blur(8px);cursor:pointer;transition:all .2s}
@@ -41,6 +48,7 @@ canvas.hit{cursor:pointer}
 .compose{display:flex;gap:8px;padding:0 16px 10px;flex:none}
 .compose input{flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:var(--ui);padding:10px 12px;font:14px system-ui;outline:none;width:100%}
 .compose input:focus{border-color:var(--c)}
+.compose input:disabled{opacity:0.5;cursor:not-allowed}
 .compose button{background:var(--c);border:0;border-radius:12px;color:#0a0b16;font:800 13px system-ui;padding:0 16px;cursor:pointer}
 .feed{flex:1;overflow-y:auto;padding:0 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
 .msg{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:11px 12px}
@@ -64,7 +72,7 @@ canvas.hit{cursor:pointer}
 @media(min-width:700px){.sheet{height:50vh;border-radius:22px;bottom:14px;border-bottom:1px solid rgba(255,255,255,.1)}}
 </style>
 </head>
-<body>
+<body class="booting">
 <canvas id="c"></canvas>
 <div class="top">
   <div class="brand"><b>ORBIT</b><small id="hint">drag to rotate · pinch to zoom · tap a planet</small></div>
@@ -155,7 +163,7 @@ if (localStorage.getItem('orbit_wallet')) {
 updateAuthUI();
 
 // ═══════════════════════════════════════════════════════
-// 1. ORBIT 3D ENGINE (From your original file)
+// 1. ORBIT 3D ENGINE
 // ═══════════════════════════════════════════════════════
 const TAU=Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -169,7 +177,6 @@ function initials(n){const w=String(n||'').trim().split(/\s+/);return (((w[0]||'
 
 const HY={};let ALL=[],byId={};
 
-// Convert DB community to Planet object
 function hyd(d){
   if(HY[d.id])return HY[d.id];
   const c=Object.assign({},d);
@@ -181,7 +188,7 @@ function hyd(d){
 
 async function syncAll(){
   const { data: rooms } = await sb.from('orbit_communities').select('*').neq('id', '00000000-0000-0000-0000-000000000000');
-  ALL = (rooms || []).map(r => hyd({ id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji, members: 1 }));
+  ALL = (rooms || []).map(r => hyd({ id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji, members: 1, ca: r.ca }));
   byId={};ALL.forEach(c=>byId[c.id]=c);
 }
 
@@ -231,7 +238,7 @@ const defDist=()=>clamp((outerR+110)*2.0,1250,7500);
 
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1,F=400;
-const cam={yaw:.6,pitch:.5,dist:1500,tx:0,ty:0,tz:0};
+const cam={yaw:.6,pitch:.5,dist:3000,tx:0,ty:0,tz:0};
 const want={dist:1500};
 let cenY=0,wantCenY=0;
 const ca={cy:1,sy:0,cp:1,sp:0};
@@ -317,15 +324,31 @@ function drawBelts(front,zs){
   ctx.globalAlpha=1;
 }
 const LP=[0,0,0];
+
 function drawRings(){
-  ctx.lineWidth=1.1;
+  ctx.lineWidth=1.2;
   for(const L of LANES){
-    let col='rgb(170,185,255)',al=.17;
+    let col='rgba(170,185,255,0.25)', al=1;
+    let isHover = false;
+    
     for(const c of L.members){
-      if(selId===c.id){col=c.color;al=.7;break}
-      if(hoverId===c.id){col=c.color;al=.5}
+      if(selId===c.id){col=c.color; al=0.8; isHover=true; break}
+      if(hoverId===c.id){col=c.color; al=0.5; isHover=true}
     }
-    ctx.strokeStyle=col;ctx.globalAlpha=al;
+    
+    ctx.strokeStyle=col;
+    ctx.globalAlpha=al;
+    
+    if(!isHover) {
+        ctx.setLineDash([2, 6]); 
+        ctx.lineDashOffset = -RT * 10;
+    } else {
+        ctx.setLineDash([6, 6]); 
+        ctx.lineDashOffset = -RT * 20;
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 10;
+    }
+    
     ctx.beginPath();let pen=false;
     for(let k=0;k<=96;k++){
       lanePt(L,k/96*TAU,LP);P(LP[0],LP[1],LP[2]);
@@ -333,9 +356,13 @@ function drawRings(){
       if(pen)ctx.lineTo(PX,PY);else{ctx.moveTo(PX,PY);pen=true}
     }
     ctx.stroke();
+    
+    ctx.shadowBlur = 0;
+    ctx.setLineDash([]);
   }
   ctx.globalAlpha=1;
 }
+
 function drawWaves(){
   ctx.globalCompositeOperation='lighter';
   const lim=outerR*1.25+200;
@@ -354,7 +381,7 @@ function drawWaves(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
 }
 function drawStar(p,t){
-  const R=Math.max(80*p.s,24);
+  const R=Math.max(60*p.s,24); 
   let g=ctx.createRadialGradient(p.x,p.y,R*.5,p.x,p.y,R*5.5);
   g.addColorStop(0,'rgba(255,190,90,.55)');g.addColorStop(.35,'rgba(255,120,40,.16)');g.addColorStop(1,'rgba(255,100,30,0)');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,R*5.5,0,7);ctx.fill();
@@ -542,7 +569,7 @@ cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();want.dist=clamp(want.dist*Math.exp(e.deltaY*.0012),260,defDist()*2.4);lastInput=performance.now()},{passive:false});
 
 // ═══════════════════════════════════════════════════════
-// 2. UI & CHAT LOGIC (Supabase Real-time)
+// 2. UI & CHAT LOGIC
 // ═══════════════════════════════════════════════════════
 const sheet=document.getElementById('sheet'),dock=document.getElementById('dock');
 const modal=document.getElementById('modal'), caInput=document.getElementById('caInput'), createBtn=document.getElementById('createBtn'), modalCloseBtn=document.getElementById('modalCloseBtn');
@@ -566,13 +593,12 @@ function buildDock(){
   ALL.forEach(c=>dock.append(h('button',{class:'chip',onclick:()=>select(c.id)},h('img',{src:c.src,alt:c.name}),c.name)));
 }
 
-async function openChat(roomId, roomName, roomColor){
+async function openChat(roomId, roomName, roomColor, ca){
   currentRoomId = roomId;
   sheet.style.setProperty('--c', roomColor);
   
   const feed = h('div',{class:'feed'}, h('div',{class:'loading'},'Connecting to network...'));
   
-  // Real-time
   if(currentChannel) sb.removeChannel(currentChannel);
   currentChannel = sb.channel('room_'+roomId)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orbit_messages', filter: `community_id=eq.${roomId}` }, payload => {
@@ -587,7 +613,6 @@ async function openChat(roomId, roomName, roomColor){
         }
     }).subscribe();
 
-  // History
   const { data } = await sb.from('orbit_messages').select('*').eq('community_id', roomId).order('created_at', {ascending:true}).limit(100);
   feed.innerHTML = '';
   if(data && data.length) {
@@ -601,15 +626,63 @@ async function openChat(roomId, roomName, roomColor){
       feed.append(h('div',{class:'loading'},'Quiet orbit. Be the first to post.'));
   }
 
+  const isGeneral = roomId === '00000000-0000-0000-0000-000000000000';
   const input = h('input',{placeholder:`Message #${roomName}...`, maxlength:'200'});
+  
+  if (!isGeneral && ca) {
+      if (!walletAddress) {
+          input.disabled = true;
+          input.placeholder = "Connect Phantom to verify holdings.";
+      } else {
+          try {
+              input.disabled = true; input.placeholder = "Verifying token balance...";
+              
+              const connection = new solanaWeb3.Connection("https://mainnet.helius-rpc.com/?api-key=fa7e6515-19de-45de-a7d1-35a64a0d9a1a");
+              const pubKey = new solanaWeb3.PublicKey(walletAddress);
+              const mint = new solanaWeb3.PublicKey(ca);
+              
+              const accounts = await connection.getParsedTokenAccountsByOwner(pubKey, { mint: mint });
+              let balance = 0;
+              accounts.value.forEach(acc => {
+                  balance += acc.account.data.parsed.info.tokenAmount.uiAmount;
+              });
+              
+              await sb.rpc('orbit_sync_balance', { p_wallet: walletAddress, p_room_id: roomId, p_balance: balance });
+              
+              if (balance > 0) {
+                  input.disabled = false;
+                  input.placeholder = `Message #${roomName}...`;
+              } else {
+                  input.placeholder = "You don't hold this token.";
+                  input.disabled = true;
+              }
+          } catch(e) {
+              console.error(e);
+              input.placeholder = "Error checking balance.";
+              input.disabled = true;
+          }
+      }
+  }
+
   const send = async () => {
       const txt = input.value.trim(); if(!txt) return; input.value='';
-      await sb.from('orbit_messages').insert({ community_id: roomId, username: myUsername, content: txt });
+      
+      const { data, error } = await sb.rpc('orbit_send_message', {
+          p_room_id: roomId,
+          p_wallet: walletAddress || 'guest',
+          p_username: myUsername,
+          p_content: txt
+      });
+      
+      if (error || (data && data.error === 'insufficient_token_balance')) {
+          alert("Message blocked: Insufficient token balance.");
+          input.value = txt;
+      }
   };
   input.onkeydown = e => { if(e.key==='Enter') send() };
 
   const cObj = ALL.find(c => c.id === roomId);
-  const headImg = roomId === '00000000-0000-0000-0000-000000000000' ? 
+  const headImg = isGeneral ? 
     h('div',{class:'av',style:'width:52px;height:52px;font-size:24px;background:radial-gradient(circle at 35% 35%,#fffbe6,#ffb347 55%,#ff7a2a);border-radius:50%;display:grid;place-items:center;box-shadow:0 0 18px rgba(255,179,71,0.6)'},'✦') :
     h('img',{src:cObj.src,alt:roomName});
 
@@ -617,7 +690,7 @@ async function openChat(roomId, roomName, roomColor){
   sheet.append(
       h('div',{class:'grab'}),
       h('div',{class:'head'}, headImg,
-          h('div',{class:'t'},h('h2',null,roomName),h('p',null, roomId === '00000000-0000-0000-0000-000000000000' ? 'General Broadcast' : cObj.tag || 'Community')),
+          h('div',{class:'t'},h('h2',null,roomName),h('p',null, isGeneral ? 'General Broadcast' : cObj.tag || 'Community')),
           h('button',{class:'x',onclick:()=>select(null)},'×')
       ),
       h('div',{class:'compose'}, input, h('button',{onclick:send},'Send')),
@@ -638,7 +711,7 @@ function select(id){
   if(id === 'core') openChat('00000000-0000-0000-0000-000000000000', 'General Chat', '#ffb347');
   else {
       const room = ALL.find(c=>c.id===id);
-      if(room) openChat(room.id, room.name, room.color);
+      if(room) openChat(room.id, room.name, room.color, room.ca);
   }
 }
 
@@ -680,7 +753,7 @@ createBtn.onclick = async () => {
         
         modal.classList.remove('open');
         caInput.value = '';
-        await initApp(); // Reload canvas with new planet
+        await initApp(); 
         
     } catch (err) {
         alert("Error: " + err.message);
@@ -691,16 +764,34 @@ createBtn.onclick = async () => {
 };
 
 // ═══════════════════════════════════════════════════════
-// 4. BOOT
+// 4. BOOT (Epic Blur & Dummy Planets)
 // ═══════════════════════════════════════════════════════
 async function initApp() {
-    await syncAll();
-    layout();
-    buildDock();
     if(!W) resize();
+    
+    // ⚑ 1. GENERATE EPIC DUMMY PLANETS FOR LOADING BLUR
+    const temp = [
+        { id: 't1', name: '', tag: '', color: '#ff7a3d', emoji: '🪐', members: 5000 },
+        { id: 't2', name: '', tag: '', color: '#b45cff', emoji: '🌍', members: 2000 },
+        { id: 't3', name: '', tag: '', color: '#3aa0ff', emoji: '🌙', members: 800 },
+        { id: 't4', name: '', tag: '', color: '#3ddc84', emoji: '☄️', members: 300 }
+    ];
+    ALL = temp.map(p => hyd(p));
+    layout();
+    
     cenY = wantCenY;
     want.dist = defDist();
-    cam.dist = defDist() * 1.7;
+    cam.dist = defDist() * 1.5; 
+    
+    // ⚑ 2. FETCH REAL DATA
+    await syncAll();
+    
+    // ⚑ 3. REBUILD WITH REAL DATA
+    layout();
+    buildDock();
+    
+    // ⚑ 4. EPIC REVEAL
+    document.body.classList.remove('booting');
 }
 
 requestAnimationFrame(frame);
