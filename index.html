@@ -27,7 +27,6 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 .btn{background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:6px 11px;font:600 12px system-ui;backdrop-filter:blur(8px);cursor:pointer;transition:all .2s}
 .btn:hover{border-color:#ffd27a;color:#ffd27a}
 .btn.connected{border-color:#22c55e;color:#22c55e;box-shadow:0 0 10px rgba(34,197,94,0.3)}
-.btn.verified-x{border-color:#1d9bf0;color:#1d9bf0;box-shadow:0 0 10px rgba(29,155,240,0.3)}
 .dock{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:4;scrollbar-width:none;transition:transform .35s,opacity 1.5s ease}
 .dock::-webkit-scrollbar{display:none}
 .dock.hide{transform:translateY(120%);opacity:0;pointer-events:none}
@@ -45,6 +44,11 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 .head p{margin:2px 0 0;color:var(--mut);font-size:12px}
 .x{background:none;border:0;color:var(--mut);font-size:22px;cursor:pointer;padding:0 0 0 4px;transition:color .2s}
 .x:hover{color:#ff5c7c}
+
+/* ⚑ DELETE BUTTON */
+.del-btn{background:rgba(239, 68, 68, 0.1);border:1px solid rgba(239, 68, 68, 0.4);color:#ef4444;font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px;margin-right:4px;transition:all .2s}
+.del-btn:hover{background:rgba(239, 68, 68, 0.3);color:#fff;box-shadow:0 0 10px rgba(239, 68, 68, 0.5)}
+
 .compose{display:flex;gap:8px;padding:0 16px 10px;flex:none}
 .compose input{flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:var(--ui);padding:10px 12px;font:14px system-ui;outline:none;width:100%}
 .compose input:focus{border-color:var(--c)}
@@ -77,7 +81,6 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 <div class="top">
   <div class="brand"><b>ORBIT</b><small id="hint">drag to rotate · pinch to zoom · tap a planet</small></div>
   <div class="tools">
-    <button class="btn" id="xBtn">VERIFY X</button>
     <button class="btn" id="phantomBtn">CONNECT PHANTOM</button>
   </div>
 </div>
@@ -98,31 +101,21 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 
 <script>
 // ═══════════════════════════════════════════════════════
-// 0. SETUP KEYS & AUTH (MSN Architecture)
+// 0. SETUP KEYS & AUTH
 // ═══════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://lmakgwdrwdhjofgyovkj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_50c1y3L6RfgVDqZPETvUtA_yZQt5our';
 const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=fa7e6515-19de-45de-a7d1-35a64a0d9a1a";
 
-// ⚑ SEPARATE CLIENT FOR OAUTH (Exactly like MSN's x-auth.js)
-const authClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-        flowType: 'pkce',
-        detectSessionInUrl: true,
-        persistSession: true
-    }
-});
+// ⚑ THE ADMIN WALLET (Only this wallet can delete planets)
+const ADMIN_WALLET = '4XAqQmEcJW37ZUqDwwAWhuPy7xfQpTJTLoEUwmi51yuj';
 
-// ⚑ MAIN CLIENT FOR DB (No auth tracking needed here)
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let myUsername = localStorage.getItem('orbit_user') || 'Anon';
 let walletAddress = null;
-let isXVerified = localStorage.getItem('orbit_x_verified') === 'true';
-let xHandle = localStorage.getItem('orbit_x_handle') || '';
 
 const phantomBtn = document.getElementById('phantomBtn');
-const xBtn = document.getElementById('xBtn');
 
 function updateAuthUI() {
     if (walletAddress) {
@@ -132,133 +125,54 @@ function updateAuthUI() {
         phantomBtn.textContent = 'CONNECT PHANTOM';
         phantomBtn.classList.remove('connected');
     }
-    
-    if (isXVerified && xHandle) {
-        xBtn.textContent = '@' + xHandle;
-        xBtn.classList.add('verified-x');
-    } else {
-        xBtn.textContent = 'VERIFY X';
-        xBtn.classList.remove('verified-x');
-    }
 }
 
-// ⚑ UTILS FROM MSN (Timeout wrapper)
 function _withTimeout(p, ms, label) {
     return Promise.race([
         p,
         new Promise(function (_, rej) {
-            setTimeout(function () {
-                rej(new Error((label || 'Request') + ' timed out'));
-            }, ms);
+            setTimeout(function () { rej(new Error((label || 'Request') + ' timed out')); }, ms);
         })
     ]);
 }
 
-// ⚑ PHANTOM LOGIC (Exactly like MSN's script.js)
 phantomBtn.onclick = async () => {
-    let provider = null;
-    if ('phantom' in window) {
-        provider = window.phantom?.solana;
-    }
-    if (!provider && window.solana && window.solana.isPhantom) {
-        provider = window.solana;
-    }
-
-    if (!provider) {
-        alert("Phantom wallet not found! Please install the extension and refresh.");
+    let provider = window.phantom?.solana || window.solana;
+    if (!provider || !provider.isPhantom) {
+        alert("Phantom wallet not found! Please install the extension.");
         return;
     }
-
     try {
         phantomBtn.textContent = "CONNECTING...";
-        
-        // Wrapping with timeout to prevent infinite hang
-        const resp = await _withTimeout(
-            provider.connect({ onlyIfTrusted: false }), 
-            60000, 
-            'Wallet connect'
-        );
-        
+        const resp = await _withTimeout(provider.connect({ onlyIfTrusted: false }), 60000, 'Wallet connect');
         walletAddress = resp.publicKey.toString();
         localStorage.setItem('orbit_wallet', walletAddress);
         updateAuthUI();
-        
         if(myUsername === 'Anon') {
             myUsername = prompt("Wallet connected! Enter your username:") || "Anon" + Math.floor(Math.random()*1000);
             localStorage.setItem('orbit_user', myUsername);
         }
+        // Refresh current view to show admin tools if user just connected as admin
+        if (walletAddress === ADMIN_WALLET && selId && selId !== 'core') {
+            const room = ALL.find(c=>c.id===selId);
+            if (room) openChat(room.id, room.name, room.color, room.ca);
+        }
     } catch (err) { 
-        console.error("Phantom Error:", err);
+        console.error(err);
         alert("Connection failed: " + (err.message || "User rejected"));
         phantomBtn.textContent = "CONNECT PHANTOM";
     }
 };
 
-// ⚑ X OAUTH LOGIC (Exactly like MSN's x-auth.js)
-xBtn.onclick = async () => {
-    if (!walletAddress) { alert("Connect Phantom first!"); return; }
-    if (isXVerified) return;
-    
-    xBtn.textContent = "AUTHENTICATING...";
-    xBtn.disabled = true;
-    
-    try {
-        // Mark session for pending OAuth
-        sessionStorage.setItem('orbit_x_oauth_pending', JSON.stringify({ started: Date.now() }));
-        
-        // Use authClient for OAuth flow
-        const { error } = await authClient.auth.signInWithOAuth({
-            provider: 'x',
-            options: { 
-                redirectTo: window.location.origin + window.location.pathname,
-                scopes: 'users.read tweet.read'
-            }
-        });
-        
-        if (error) throw error;
-        
-    } catch (err) {
-        console.error("X Auth Error:", err);
-        alert("Auth Error: " + err.message);
-        xBtn.textContent = "VERIFY X";
-        xBtn.disabled = false;
-        sessionStorage.removeItem('orbit_x_oauth_pending');
-    }
-};
-
-// ⚑ LISTEN FOR AUTH STATE (Exactly like MSN's x-auth.js)
-authClient.auth.onAuthStateChange(async (event, session) => {
-    if (session && session.user) {
-        const handle = session.user.user_metadata?.preferred_username || session.user.user_metadata?.user_name || '';
-        if (handle) {
-            isXVerified = true;
-            xHandle = handle;
-            localStorage.setItem('orbit_x_verified', 'true');
-            localStorage.setItem('orbit_x_handle', handle);
-            updateAuthUI();
-            sessionStorage.removeItem('orbit_x_oauth_pending');
-        }
-    }
-});
-
-// Auto-reconnect Phantom on load
 if (localStorage.getItem('orbit_wallet')) {
     walletAddress = localStorage.getItem('orbit_wallet');
-    updateAuthUI();
-    
-    // Attempt silent reconnect
-    let provider = null;
-    if ('phantom' in window) provider = window.phantom?.solana;
-    if (!provider && window.solana && window.solana.isPhantom) provider = window.solana;
-    
-    if (provider) {
-        provider.connect({ onlyIfTrusted: true }).catch(()=>{});
-    }
+    let provider = window.phantom?.solana || window.solana;
+    if (provider) provider.connect({ onlyIfTrusted: true }).catch(()=>{});
 }
 updateAuthUI();
 
 // ═══════════════════════════════════════════════════════
-// 1. ORBIT 3D ENGINE (Your original code)
+// 1. ORBIT 3D ENGINE (EPIC EFFECTS)
 // ═══════════════════════════════════════════════════════
 const TAU=Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -276,14 +190,17 @@ function hyd(d){
   if(HY[d.id])return HY[d.id];
   const c=Object.assign({},d);
   c.src = d.logo_url || 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${d.color||'#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="40" fill="#fff">${esc(d.emoji||initials(d.name))}</text></svg>`);
-  c.img=new Image();c.img.src=c.src;
+  c.img=new Image();
+  c.img.crossOrigin = "Anonymous";
+  c.img.src=c.src;
+  
   c.born=RT+.3;c.pulseAt=-99;c.pos=[0,0,0];c.pj={x:0,y:0,z:1,s:1};c.off=undefined;c.lane=null;
   HY[d.id]=c;return c;
 }
 
 async function syncAll(){
   const { data: rooms } = await sb.from('orbit_communities').select('*').neq('id', '00000000-0000-0000-0000-000000000000');
-  ALL = (rooms || []).map(r => hyd({ id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji, members: 1, ca: r.ca }));
+  ALL = (rooms || []).map(r => hyd({ id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji, members: 1, ca: r.ca, logo_url: r.logo_url }));
   byId={};ALL.forEach(c=>byId[c.id]=c);
 }
 
@@ -423,25 +340,25 @@ const LP=[0,0,0];
 function drawRings(){
   ctx.lineWidth=1.2;
   for(const L of LANES){
-    let col='rgba(170,185,255,0.25)', al=1;
+    let col='rgba(170,185,255,0.15)', al=1;
     let isHover = false;
     
     for(const c of L.members){
-      if(selId===c.id){col=c.color; al=0.8; isHover=true; break}
-      if(hoverId===c.id){col=c.color; al=0.5; isHover=true}
+      if(selId===c.id){col=c.color; al=0.9; isHover=true; break}
+      if(hoverId===c.id){col=c.color; al=0.6; isHover=true}
     }
     
     ctx.strokeStyle=col;
     ctx.globalAlpha=al;
     
     if(!isHover) {
-        ctx.setLineDash([2, 6]); 
-        ctx.lineDashOffset = -RT * 10;
+        ctx.setLineDash([2, 8]); 
+        ctx.lineDashOffset = -RT * 15;
     } else {
-        ctx.setLineDash([6, 6]); 
-        ctx.lineDashOffset = -RT * 20;
+        ctx.setLineDash([8, 8]); 
+        ctx.lineDashOffset = -RT * 30;
         ctx.shadowColor = col;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 15;
     }
     
     ctx.beginPath();let pen=false;
@@ -464,7 +381,7 @@ function drawWaves(){
   for(let i=waves.length-1;i>=0;i--){
     const w=waves[i],R=(RT-w.t0)*620;
     if(R>lim){waves.splice(i,1);continue}
-    ctx.strokeStyle=w.color;ctx.globalAlpha=Math.max(0,.5*(1-R/lim));ctx.lineWidth=2.2;
+    ctx.strokeStyle=w.color;ctx.globalAlpha=Math.max(0,.6*(1-R/lim));ctx.lineWidth=3;
     ctx.beginPath();let pen=false;
     for(let k=0;k<=72;k++){
       const a=k/72*TAU;P(R*Math.cos(a),0,R*Math.sin(a));
@@ -478,7 +395,7 @@ function drawWaves(){
 function drawStar(p,t){
   const R=Math.max(60*p.s,24); 
   let g=ctx.createRadialGradient(p.x,p.y,R*.5,p.x,p.y,R*5.5);
-  g.addColorStop(0,'rgba(255,190,90,.55)');g.addColorStop(.35,'rgba(255,120,40,.16)');g.addColorStop(1,'rgba(255,100,30,0)');
+  g.addColorStop(0,'rgba(255,190,90,.65)');g.addColorStop(.35,'rgba(255,120,40,.16)');g.addColorStop(1,'rgba(255,100,30,0)');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,R*5.5,0,7);ctx.fill();
   ctx.save();ctx.translate(p.x,p.y);
   for(let layer=0;layer<2;layer++){
@@ -506,33 +423,36 @@ function drawStar(p,t){
   ctx.fillText('GENERAL CHAT',p.x,p.y+R+18);ctx.shadowBlur=0;
   hits.push({id:'core',x:p.x,y:p.y,r:R,z:p.z});
 }
-const TX=new Float32Array(32),TY=new Float32Array(32);
+const TX=new Float32Array(40),TY=new Float32Array(40);
 function drawMoon(m){
   const r=m.r;
   const g=ctx.createRadialGradient(m.x-r*.3,m.y-r*.3,r*.1,m.x,m.y,r);
   g.addColorStop(0,'#f4f6ff');g.addColorStop(1,'#6a7096');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(m.x,m.y,r,0,7);ctx.fill();
 }
+
 function drawPlanet(c,sp){
   const prog=clamp((RT-c.born)/.9,0,1);if(prog<=0)return;
   const sc=easeOutBack(prog),p=c.pj,L=c.lane;
   const sz=c.baseSize*sizeMul;
   const r=Math.max(sz*p.s,11)*sc;
   const act=selId===c.id,hov=hoverId===c.id;
+  
   let nt=0;TX[0]=p.x;TY[0]=p.y;
-  for(let k=1;k<=22;k++){
+  for(let k=1;k<=35;k++){
     lanePt(L,kep(c.M-L.dir*k*.05,L.e),LP);P(LP[0],LP[1],LP[2]);
     if(PZ<30)break;TX[k]=PX;TY[k]=PY;nt=k;
   }
   if(nt>1){
     ctx.globalCompositeOperation='lighter';ctx.lineCap='round';ctx.strokeStyle=c.color;
-    for(let g=0;g<5;g++){
-      const a=g*4,b=Math.min(nt,(g+1)*4);if(a>=nt)break;
-      ctx.globalAlpha=(act?.9:.5)*(1-g/5.2)*sc;ctx.lineWidth=Math.max(1.2,r*.5*(1-g/5));
+    for(let g=0;g<7;g++){
+      const a=g*5,b=Math.min(nt,(g+1)*5);if(a>=nt)break;
+      ctx.globalAlpha=(act?.9:.6)*(1-g/7.5)*sc;ctx.lineWidth=Math.max(1.5,r*.6*(1-g/7));
       ctx.beginPath();ctx.moveTo(TX[a],TY[a]);for(let k=a+1;k<=b;k++)ctx.lineTo(TX[k],TY[k]);ctx.stroke();
     }
     ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
   }
+
   const nm=clamp(Math.floor((c.members||0)/2200),0,3),moons=[];
   if(r>9)for(let k=0;k<nm;k++){
     const am=T*(1.1+.5*k)+k*2.1,rr=sz*(1.9+.8*k);
@@ -541,46 +461,56 @@ function drawPlanet(c,sp){
   }
   for(const m of moons)if(m.z>p.z)drawMoon(m);
   let lx=sp.x-p.x,ly=sp.y-p.y;const Ln=Math.hypot(lx,ly)||1;lx/=Ln;ly/=Ln;
-  let g=ctx.createRadialGradient(p.x,p.y,r*.85,p.x,p.y,r*1.7);
-  g.addColorStop(0,c.color+'66');g.addColorStop(1,c.color+'00');
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r*1.7,0,7);ctx.fill();
-  g=ctx.createRadialGradient(p.x+lx*r*.35,p.y+ly*r*.35,r*.1,p.x,p.y,r*1.05);
-  g.addColorStop(0,lighten(c.color,.55));g.addColorStop(.55,c.color);g.addColorStop(1,'#07081a');
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.fill();
-  ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.clip();
-  const lr=r*.78;
-  if(c.img.complete&&c.img.naturalWidth)ctx.drawImage(c.img,p.x-lr,p.y-lr,lr*2,lr*2);
+
+  let g=ctx.createRadialGradient(p.x,p.y,r*.85,p.x,p.y,r*1.8);
+  g.addColorStop(0,c.color+'88');g.addColorStop(1,c.color+'00');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r*1.8,0,7);ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.clip();
+  
+  if(c.img.complete && c.img.naturalWidth > 0) {
+      ctx.drawImage(c.img, p.x - r, p.y - r, r*2, r*2);
+  } else {
+      ctx.fillStyle = c.color;
+      ctx.fillRect(p.x - r, p.y - r, r*2, r*2);
+      ctx.font = `bold ${r}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(initials(c.name), p.x, p.y);
+  }
+
   g=ctx.createLinearGradient(p.x+lx*r,p.y+ly*r,p.x-lx*r,p.y-ly*r);
-  g.addColorStop(0,'rgba(0,0,12,0)');g.addColorStop(.45,'rgba(0,0,12,.08)');g.addColorStop(1,'rgba(0,0,12,.62)');
+  g.addColorStop(0,'rgba(0,0,12,0)');g.addColorStop(.45,'rgba(0,0,12,.15)');g.addColorStop(1,'rgba(0,0,12,.85)');
   ctx.fillStyle=g;ctx.fillRect(p.x-r,p.y-r,r*2,r*2);
-  g=ctx.createRadialGradient(p.x+lx*r*.45,p.y+ly*r*.45,0,p.x+lx*r*.45,p.y+ly*r*.45,r*.55);
-  g.addColorStop(0,'rgba(255,255,255,.28)');g.addColorStop(1,'rgba(255,255,255,0)');
+
+  g=ctx.createRadialGradient(p.x+lx*r*.45,p.y+ly*r*.45,0,p.x+lx*r*.45,p.y+ly*r*.45,r*.6);
+  g.addColorStop(0,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=g;ctx.fillRect(p.x-r,p.y-r,r*2,r*2);
   ctx.restore();
+
   ctx.lineWidth=1.5;ctx.strokeStyle=c.color;ctx.globalAlpha=.8;
   ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.stroke();ctx.globalAlpha=1;
   for(const m of moons)if(m.z<=p.z)drawMoon(m);
+  
   if(prog<1){
-    ctx.globalCompositeOperation='lighter';ctx.globalAlpha=(1-prog)*.7;ctx.fillStyle=c.color;
-    ctx.beginPath();ctx.arc(p.x,p.y,r*2.2,0,7);ctx.fill();
+    ctx.globalCompositeOperation='lighter';ctx.globalAlpha=(1-prog)*.8;ctx.fillStyle=c.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,r*2.5,0,7);ctx.fill();
     ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
   }
-  const age=RT-c.pulseAt;
-  if(age<1.4){
-    ctx.strokeStyle=c.color;ctx.globalAlpha=1-age/1.4;ctx.lineWidth=2;
-    ctx.beginPath();ctx.arc(p.x,p.y,r*(1.2+age*2.2),0,7);ctx.stroke();ctx.globalAlpha=1;
-  }
+  
   if(act||hov){
-    ctx.save();ctx.setLineDash([6,6]);ctx.lineDashOffset=-RT*18;ctx.strokeStyle=act?'#fff':c.color;ctx.lineWidth=1.6;
-    ctx.beginPath();ctx.arc(p.x,p.y,r*1.38,0,7);ctx.stroke();ctx.restore();
+    ctx.save();ctx.setLineDash([6,6]);ctx.lineDashOffset=-RT*20;ctx.strokeStyle=act?'#fff':c.color;ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(p.x,p.y,r*1.45,0,7);ctx.stroke();ctx.restore();
   }
+  
   if(ALL.length<=9||act||hov||r>17){
-    ctx.font=`700 ${clamp(r*.42,11,15)}px system-ui`;ctx.textAlign='center';
-    ctx.fillStyle=act||hov?'#fff':'rgba(225,232,255,.88)';ctx.shadowColor='#000';ctx.shadowBlur=6;
-    ctx.fillText(c.name,p.x,p.y+r+(act?20:15));ctx.shadowBlur=0;
+    ctx.font=`700 ${clamp(r*.42,11,16)}px system-ui`;ctx.textAlign='center';
+    ctx.fillStyle=act||hov?'#fff':'rgba(225,232,255,.9)';ctx.shadowColor='#000';ctx.shadowBlur=8;
+    ctx.fillText(c.name,p.x,p.y+r+(act?22:18));ctx.shadowBlur=0;
   }
-  hits.push({id:c.id,x:p.x,y:p.y,r:r*1.1,z:p.z});
+  hits.push({id:c.id,x:p.x,y:p.y,r:r*1.15,z:p.z});
 }
+
 function drawFX(dt){
   ctx.globalCompositeOperation='lighter';
   for(let i=parts.length-1;i>=0;i--){
@@ -637,7 +567,7 @@ let dragging=false,down=null,pinch0=0;const ptrs=new Map();
 const pd=()=>{const a=[...ptrs.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)};
 function hitAt(x,y){
   let best=null;
-  for(const h of hits){if(Math.hypot(h.x-x,h.y-y)<=h.r+8&&(!best||h.z<best.z))best=h}
+  for(const h of hits){if(Math.hypot(h.x-x,h.y-y)<=h.r+10&&(!best||h.z<best.z))best=h}
   return best;
 }
 cv.addEventListener('pointerdown',e=>{
@@ -777,6 +707,28 @@ async function openChat(roomId, roomName, roomColor, ca){
   input.onkeydown = e => { if(e.key==='Enter') send() };
 
   const cObj = ALL.find(c => c.id === roomId);
+  
+  // ⚑ ADMIN DELETE BUTTON LOGIC
+  const isAdmin = walletAddress === ADMIN_WALLET;
+  const headerKids = [
+      h('div',{class:'t'},h('h2',null,roomName),h('p',null, isGeneral ? 'General Broadcast' : cObj.tag || 'Community'))
+  ];
+
+  if (isAdmin && !isGeneral) {
+      headerKids.push(h('button', {class:'del-btn', title:'Delete Planet', onclick: async () => {
+          if(confirm("Are you sure you want to delete this planet and all its messages? This cannot be undone.")) {
+              const { error } = await sb.from('orbit_communities').delete().eq('id', roomId);
+              if (error) alert("Error deleting: " + error.message);
+              else {
+                  select(null); // Close sheet
+                  await refreshCommunities(); // Update UI without flicker
+              }
+          }
+      }}, '🗑'));
+  }
+
+  headerKids.push(h('button',{class:'x',onclick:()=>select(null)},'×'));
+
   const headImg = isGeneral ? 
     h('div',{class:'av',style:'width:52px;height:52px;font-size:24px;background:radial-gradient(circle at 35% 35%,#fffbe6,#ffb347 55%,#ff7a2a);border-radius:50%;display:grid;place-items:center;box-shadow:0 0 18px rgba(255,179,71,0.6)'},'✦') :
     h('img',{src:cObj.src,alt:roomName});
@@ -784,10 +736,7 @@ async function openChat(roomId, roomName, roomColor, ca){
   sheet.innerHTML = '';
   sheet.append(
       h('div',{class:'grab'}),
-      h('div',{class:'head'}, headImg,
-          h('div',{class:'t'},h('h2',null,roomName),h('p',null, isGeneral ? 'General Broadcast' : cObj.tag || 'Community')),
-          h('button',{class:'x',onclick:()=>select(null)},'×')
-      ),
+      h('div',{class:'head'}, headImg, ...headerKids),
       h('div',{class:'compose'}, input, h('button',{onclick:send},'Send')),
       feed
   );
@@ -800,7 +749,13 @@ function select(id){
   wantCenY = id ? H*.25 : H*.5;
   dock.classList.toggle('hide', !!id);
   
-  if(!id) { sheet.classList.remove('open'); if(currentChannel) sb.removeChannel(currentChannel); return; }
+  if(!id) { 
+      sheet.classList.remove('open'); 
+      if(currentChannel) sb.removeChannel(currentChannel); 
+      // EPIC RETURN EFFECT
+      waves.push({t0:RT, color:'#ffb347'}); 
+      return; 
+  }
   sheet.classList.add('open');
   
   if(id === 'core') openChat('00000000-0000-0000-0000-000000000000', 'General Chat', '#ffb347');
@@ -848,7 +803,11 @@ createBtn.onclick = async () => {
         
         modal.classList.remove('open');
         caInput.value = '';
-        await initApp(); 
+        
+        // ⚑ EPIC EFFECT: Shockwave on creation
+        waves.push({t0:RT, color: color});
+        
+        await refreshCommunities(); 
         
     } catch (err) {
         alert("Error: " + err.message);
@@ -859,17 +818,39 @@ createBtn.onclick = async () => {
 };
 
 // ═══════════════════════════════════════════════════════
-// 4. BOOT (Epic Blur & Dummy Planets)
+// 4. BOOT & FLICKER-FREE REFRESH
 // ═══════════════════════════════════════════════════════
+
+// ⚑ Refreshes data without resetting the camera or showing the loading screen
+async function refreshCommunities() {
+    // Save camera state for seamless transition
+    const oldDist = want.dist;
+    const oldYaw = cam.yaw;
+    const oldPitch = cam.pitch;
+
+    try {
+        await syncAll();
+        layout();
+        buildDock();
+        
+        // Restore camera state so it doesn't snap
+        want.dist = oldDist;
+        cam.yaw = oldYaw;
+        cam.pitch = oldPitch;
+    } catch(e) {
+        console.warn("Could not refresh communities:", e);
+    }
+}
+
 async function initApp() {
     if(!W) resize();
     
     // 1. GENERATE EPIC DUMMY PLANETS FOR LOADING BLUR
     const temp = [
-        { id: 't1', name: '', tag: '', color: '#ff7a3d', emoji: '🪐', members: 5000 },
-        { id: 't2', name: '', tag: '', color: '#b45cff', emoji: '🌍', members: 2000 },
-        { id: 't3', name: '', tag: '', color: '#3aa0ff', emoji: '🌙', members: 800 },
-        { id: 't4', name: '', tag: '', color: '#3ddc84', emoji: '☄️', members: 300 }
+        { id: 't1', name: 'Loading...', tag: '', color: '#ff7a3d', emoji: '🪐', members: 5000 },
+        { id: 't2', name: 'Loading...', tag: '', color: '#b45cff', emoji: '🌍', members: 2000 },
+        { id: 't3', name: 'Loading...', tag: '', color: '#3aa0ff', emoji: '🌙', members: 800 },
+        { id: 't4', name: 'Loading...', tag: '', color: '#3ddc84', emoji: '☄️', members: 300 }
     ];
     ALL = temp.map(p => hyd(p));
     layout();
