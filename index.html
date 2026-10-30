@@ -162,10 +162,10 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
       <b>ORBITS</b>
       <small id="hint">Chatrooms for holders. Just the CA.</small>
       
-      <!-- ⚑ PROJECT CA PLACEHOLDER -->
-      <div class="project-ca" id="projectCA" title="Project CA coming soon">
+      <!-- ⚑ PROJECT CA CHIP (UPDATED) -->
+      <div class="project-ca" id="projectCA" title="Copy Project CA">
           <span class="icon">📋</span>
-          <span class="text">CA: TBA</span>
+          <span class="text">CA: Fqbh...pump</span>
       </div>
   </div>
   
@@ -238,14 +238,9 @@ function showToast(msg, isError = false) {
     setTimeout(() => el.remove(), 3000);
 }
 
-// ⚑ PROJECT CA COPY LOGIC (Placeholder)
+// ⚑ PROJECT CA COPY LOGIC (UPDATED WITH YOUR CA)
 document.getElementById('projectCA').onclick = function() {
-    const caText = "TBA"; // ⚑ Cambia esto por tu CA real cuando esté listo
-    if (caText === "TBA") {
-        showToast("Project CA will be announced soon! 🚀", false);
-        return;
-    }
-    
+    const caText = "Fqbhnaxf1iTAA1WhRsWNEoR5TRxAaZ3TPgK5xRa9pump";
     navigator.clipboard.writeText(caText).then(() => {
         showToast("Project CA Copied! 📋");
     }).catch(() => {
