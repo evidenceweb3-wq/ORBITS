@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ORBIT — Social Universe</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--ui:#e9ecff;--mut:#8b91b8;--c:#ffb347}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -16,149 +17,174 @@ canvas.hit{cursor:pointer}
 .brand b{font-size:18px;letter-spacing:.32em;font-weight:800;text-shadow:0 0 18px rgba(255,170,80,.6)}
 .brand small{display:block;color:var(--mut);font-size:11px;margin-top:4px;letter-spacing:.04em;max-width:190px;line-height:1.35;transition:opacity .5s}
 .tools{display:flex;gap:6px;pointer-events:auto}
-.btn{background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:6px 11px;font:600 12px system-ui;backdrop-filter:blur(8px);cursor:pointer}
-.btn.on{border-color:#ffd27a;color:#ffd27a}
+.btn{background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:6px 11px;font:600 12px system-ui;backdrop-filter:blur(8px);cursor:pointer;transition:all .2s}
+.btn:hover{border-color:#ffd27a;color:#ffd27a}
+.btn.connected{border-color:#22c55e;color:#22c55e;box-shadow:0 0 10px rgba(34,197,94,0.3)}
+.btn.verified-x{border-color:#1d9bf0;color:#1d9bf0;box-shadow:0 0 10px rgba(29,155,240,0.3)}
 .dock{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:4;scrollbar-width:none;transition:transform .35s,opacity .35s}
 .dock::-webkit-scrollbar{display:none}
 .dock.hide{transform:translateY(120%);opacity:0;pointer-events:none}
-.chip{flex:none;display:flex;align-items:center;gap:7px;background:rgba(14,17,38,.78);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:5px 12px 5px 5px;font:600 13px system-ui;backdrop-filter:blur(8px);cursor:pointer}
-.chip img{width:26px;height:26px;border-radius:50%;display:block}
+.chip{flex:none;display:flex;align-items:center;gap:7px;background:rgba(14,17,38,.78);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:5px 12px 5px 5px;font:600 13px system-ui;backdrop-filter:blur(8px);cursor:pointer;transition:all .2s}
+.chip:hover{border-color:var(--c)}
+.chip img{width:26px;height:26px;border-radius:50%;display:block;object-fit:cover}
 .chip.core,.chip.add{padding-left:12px;color:#ffd27a;border-color:rgba(255,210,122,.45)}
-.sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;width:100%;max-width:560px;height:56vh;display:flex;flex-direction:column;background:rgba(9,11,24,.93);backdrop-filter:blur(14px);border-radius:22px 22px 0 0;border:1px solid rgba(255,255,255,.1);border-bottom:0;border-top:2px solid var(--c);box-shadow:0 -10px 40px rgba(0,0,0,.5),0 -2px 30px color-mix(in srgb,var(--c) 35%,transparent);transform:translateY(106%);transition:transform .38s cubic-bezier(.2,.8,.2,1);z-index:6}
+.sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;width:100%;max-width:560px;height:60vh;display:flex;flex-direction:column;background:rgba(9,11,24,.93);backdrop-filter:blur(14px);border-radius:22px 22px 0 0;border:1px solid rgba(255,255,255,.1);border-bottom:0;border-top:2px solid var(--c);box-shadow:0 -10px 40px rgba(0,0,0,.5),0 -2px 30px color-mix(in srgb,var(--c) 35%,transparent);transform:translateY(106%);transition:transform .38s cubic-bezier(.2,.8,.2,1);z-index:6}
 .sheet.open{transform:none}
 .grab{width:38px;height:4px;border-radius:4px;background:rgba(255,255,255,.2);margin:8px auto 2px;flex:none}
 .head{display:flex;align-items:center;gap:12px;padding:8px 16px 10px;flex:none}
-.head img{width:52px;height:52px;border-radius:50%;box-shadow:0 0 18px color-mix(in srgb,var(--c) 60%,transparent)}
+.head img{width:52px;height:52px;border-radius:50%;box-shadow:0 0 18px color-mix(in srgb,var(--c) 60%,transparent);object-fit:cover}
 .head .t{flex:1;min-width:0}
 .head h2{margin:0;font-size:18px}
 .head p{margin:2px 0 0;color:var(--mut);font-size:12px}
-.join{background:var(--c);color:#0a0b16;border:0;border-radius:999px;padding:8px 16px;font:800 13px system-ui;cursor:pointer}
-.join.on{background:transparent;color:var(--c);border:1px solid var(--c)}
-.x{background:none;border:0;color:var(--mut);font-size:22px;cursor:pointer;padding:0 0 0 4px}
-.compose,.searchrow{display:flex;gap:8px;padding:0 16px 10px;flex:none}
-.compose input,.searchrow input,.form input[type=text]{flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:var(--ui);padding:10px 12px;font:14px system-ui;outline:none;width:100%}
-.compose input:focus,.searchrow input:focus,.form input:focus{border-color:var(--c)}
-.compose button,.primary{background:var(--c);border:0;border-radius:12px;color:#0a0b16;font:800 13px system-ui;padding:0 16px;cursor:pointer}
+.x{background:none;border:0;color:var(--mut);font-size:22px;cursor:pointer;padding:0 0 0 4px;transition:color .2s}
+.x:hover{color:#ff5c7c}
+.compose{display:flex;gap:8px;padding:0 16px 10px;flex:none}
+.compose input{flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:var(--ui);padding:10px 12px;font:14px system-ui;outline:none;width:100%}
+.compose input:focus{border-color:var(--c)}
+.compose button{background:var(--c);border:0;border-radius:12px;color:#0a0b16;font:800 13px system-ui;padding:0 16px;cursor:pointer}
 .feed{flex:1;overflow-y:auto;padding:0 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
-.post{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:11px 12px}
-.post .m{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
-.post .m b{color:var(--ui);font-size:13px}
-.av{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:800 11px system-ui;color:#0a0b16;background:var(--c)}
-.post .m img{width:20px;height:20px;border-radius:50%;margin-left:auto}
-.post p{margin:7px 0 6px;font-size:14px;line-height:1.4;word-break:break-word}
-.like{background:none;border:0;color:var(--mut);font:600 12px system-ui;cursor:pointer;padding:2px 0}
-.like.on{color:#ff6b8b}
-.card{display:flex;align-items:center;gap:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px;cursor:pointer;text-align:left;color:var(--ui);font:inherit;width:100%;flex:none}
-.card img{width:40px;height:40px;border-radius:50%;flex:none}
-.card b{font-size:14px;display:block}
-.card span{font-size:12px;color:var(--mut)}
-.card.cta{border:1px dashed rgba(255,179,71,.55);background:rgba(255,179,71,.07)}
-.plus{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(255,179,71,.18);color:#ffb347;font-size:22px;flex:none}
-.h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:6px 0 0;flex:none}
-.row2{display:flex;gap:8px;flex-wrap:wrap;flex:none}
-.del{background:none;border:1px solid rgba(255,107,139,.4);color:#ff8fa8;border-radius:12px;padding:9px;font:600 12px system-ui;cursor:pointer;flex:none}
-.form{flex:1;overflow-y:auto;padding:0 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
-.form label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);display:block;margin-bottom:5px}
-.sw{display:flex;gap:8px;flex-wrap:wrap}
-.sw button{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
-.sw button.sel{border-color:#fff;box-shadow:0 0 12px currentColor}
-.logorow{display:flex;gap:10px;align-items:center}
-.prv{width:62px;height:62px;border-radius:50%;flex:none;box-shadow:0 0 18px color-mix(in srgb,var(--c) 60%,transparent)}
-.primary{padding:13px 16px;font-size:14px}
-.primary:disabled{opacity:.35;cursor:default}
-@media(min-width:700px){.sheet{height:48vh;border-radius:22px;bottom:14px;border-bottom:1px solid rgba(255,255,255,.1)}}
+.msg{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:11px 12px}
+.msg .m{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);margin-bottom:6px}
+.msg .m b{color:var(--ui);font-size:13px}
+.msg p{margin:0;font-size:14px;line-height:1.4;word-break:break-word}
+.loading{color:var(--mut);font-size:13px;text-align:center;padding:20px}
+/* MODAL */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:10;display:none;place-items:center;padding:20px}
+.modal.open{display:grid}
+.modal-box{background:rgba(14,17,38,.95);border:1px solid rgba(255,255,255,.15);border-radius:18px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 40px rgba(0,0,0,.8), 0 0 30px rgba(255,179,71,.2)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-head h3{margin:0;color:#ffd27a;font-size:16px;letter-spacing:.05em}
+.modal-x{background:none;border:0;color:var(--mut);font-size:24px;cursor:pointer;padding:0 4px;transition:color .2s}
+.modal-x:hover{color:#ff5c7c}
+.modal-box input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;padding:12px;font:14px system-ui;margin-bottom:16px;border-radius:12px;outline:none}
+.modal-box input:focus{border-color:#ffd27a}
+.modal-box button.primary{width:100%;background:#ffd27a;border:0;color:#0a0b16;padding:12px;font:800 14px system-ui;border-radius:12px;cursor:pointer;transition:all .2s}
+.modal-box button.primary:hover{filter:brightness(1.1);box-shadow:0 0 15px rgba(255,210,122,.4)}
+.modal-box button:disabled{opacity:.5;cursor:not-allowed}
+@media(min-width:700px){.sheet{height:50vh;border-radius:22px;bottom:14px;border-bottom:1px solid rgba(255,255,255,.1)}}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div class="top">
-  <div class="brand"><b>ORBIT</b><small id="hint">drag to rotate · pinch / scroll to zoom · tap a planet</small></div>
+  <div class="brand"><b>ORBIT</b><small id="hint">drag to rotate · pinch to zoom · tap a planet</small></div>
   <div class="tools">
-    <button class="btn" id="bPause">Pause</button>
-    <button class="btn on" id="bSpin">Spin</button>
-    <button class="btn" id="bReset">Reset</button>
+    <button class="btn" id="xBtn">VERIFY X</button>
+    <button class="btn" id="phantomBtn">CONNECT PHANTOM</button>
   </div>
 </div>
 <div class="dock" id="dock"></div>
 <div class="sheet" id="sheet"></div>
 
+<!-- MODAL FOR CA CREATION -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+        <h3>Initialize New World</h3>
+        <button class="modal-x" id="modalCloseBtn">✕</button>
+    </div>
+    <input type="text" id="caInput" placeholder="Paste Token CA (Contract Address)..." autocomplete="off">
+    <button class="primary" id="createBtn">Launch Planet</button>
+  </div>
+</div>
+
 <script>
-/* ======================================================================
-   ORBIT — scalable social galaxy
-   • Add communities forever: orbits auto-layout into lanes (more planets
-     share outer lanes), elliptical Kepler motion, trails, moons, belts.
-   • Built-in worlds are in BASE below. Users can create more (saved locally).
-   • Swap any logo: add  logoUrl:'https://…'  to an entry.
-   ====================================================================== */
+// ═══════════════════════════════════════════════════════
+// 0. SUPABASE & AUTH SETUP
+// ═══════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://uxrpjfsouwxnlcbhjilz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_cLeBoHrdvg1b7WlnyJ-oVQ_6skjHc_H';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let myUsername = localStorage.getItem('orbit_user') || 'Anon';
+let walletAddress = null;
+let isXVerified = localStorage.getItem('orbit_x_verified') === 'true';
+
+const phantomBtn = document.getElementById('phantomBtn');
+const xBtn = document.getElementById('xBtn');
+
+function updateAuthUI() {
+    if (walletAddress) {
+        phantomBtn.textContent = walletAddress.slice(0,4) + '...' + walletAddress.slice(-4);
+        phantomBtn.classList.add('connected');
+    } else {
+        phantomBtn.textContent = 'CONNECT PHANTOM';
+        phantomBtn.classList.remove('connected');
+    }
+    if (isXVerified) {
+        xBtn.textContent = 'X VERIFIED';
+        xBtn.classList.add('verified-x');
+    } else {
+        xBtn.textContent = 'VERIFY X';
+        xBtn.classList.remove('verified-x');
+    }
+}
+
+phantomBtn.onclick = async () => {
+    if (!window.solana || !window.solana.isPhantom) {
+        alert("Phantom wallet not found! Please install the extension.");
+        return;
+    }
+    try {
+        const resp = await window.solana.connect();
+        walletAddress = resp.publicKey.toString();
+        localStorage.setItem('orbit_wallet', walletAddress);
+        updateAuthUI();
+        if(myUsername === 'Anon') {
+            myUsername = prompt("Wallet connected! Enter your username:") || "Anon" + Math.floor(Math.random()*1000);
+            localStorage.setItem('orbit_user', myUsername);
+        }
+    } catch (err) { console.error(err); }
+};
+
+xBtn.onclick = () => {
+    if (!walletAddress) { alert("Connect Phantom first!"); return; }
+    if (isXVerified) return;
+    alert("Redirecting to X for verification... (Mock)");
+    setTimeout(() => {
+        isXVerified = true;
+        localStorage.setItem('orbit_x_verified', 'true');
+        updateAuthUI();
+    }, 1000);
+};
+
+if (localStorage.getItem('orbit_wallet')) {
+    walletAddress = localStorage.getItem('orbit_wallet');
+    window.solana.connect({ onlyIfTrusted: true }).catch(()=>{});
+}
+updateAuthUI();
+
+// ═══════════════════════════════════════════════════════
+// 1. ORBIT 3D ENGINE (From your original file)
+// ═══════════════════════════════════════════════════════
 const TAU=Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const COLORS=['#ff7a3d','#ff4d8d','#b45cff','#3aa0ff','#2fd3c4','#3ddc84','#ffd23f','#ff5b5b'];
-let RT=performance.now()/1000;           // real time (seconds)
-let T=0;                                  // simulation time (pauses)
+let RT=performance.now()/1000;
+let T=0;
 
 function lighten(hex,a){const n=parseInt(hex.slice(1),16);const r=n>>16,g=n>>8&255,b=n&255;const m=v=>Math.round(v+(255-v)*a);return `rgb(${m(r)},${m(g)},${m(b)})`}
-function hsl2hex(h,s,l){h/=360;const f=n=>{const k=(n+h*12)%12;const a=s*Math.min(l,1-l);const v=l-a*Math.max(-1,Math.min(k-3,9-k,1));return Math.round(255*v).toString(16).padStart(2,'0')};return '#'+f(0)+f(8)+f(4)}
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
-const SEG=(typeof Intl!=='undefined'&&Intl.Segmenter)?new Intl.Segmenter(undefined,{granularity:'grapheme'}):null;
-function gr(t){t=String(t||'');return SEG?Array.from(SEG.segment(t),x=>x.segment):Array.from(t)}
 function initials(n){const w=String(n||'').trim().split(/\s+/);return (((w[0]||'?')[0]||'?')+(w[1]?w[1][0]:'')).toUpperCase()}
-function mk(color,glyph){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${lighten(color,.35)}"/><stop offset="1" stop-color="${color}"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#g)"/>${glyph}</svg>`}
-function textGlyph(t){const a=gr(t).slice(0,2);const fs=a.length<=1?54:40;return `<text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="${fs}" fill="#fff">${esc(a.join(''))}</text>`}
 
-const GLYPH={
-  forge:c=>`<g fill="#fff"><rect x="24" y="24" width="22" height="22" rx="3"/><rect x="54" y="24" width="22" height="22" rx="3" opacity=".55"/><rect x="24" y="54" width="22" height="22" rx="3" opacity=".55"/><rect x="54" y="54" width="22" height="22" rx="3"/></g>`,
-  beats:c=>`<g fill="#fff"><rect x="21" y="40" width="10" height="26" rx="5"/><rect x="35" y="24" width="10" height="52" rx="5"/><rect x="55" y="32" width="10" height="40" rx="5"/><rect x="69" y="44" width="10" height="20" rx="5"/></g>`,
-  roots:c=>`<path d="M50 80C26 72 20 42 30 26c26 0 48 8 48 32 0 13-11 22-28 22z" fill="#fff"/><path d="M34 70C44 56 52 47 64 38" stroke="#0b2a17" stroke-width="4.5" fill="none" stroke-linecap="round"/>`,
-  labs:c=>`<g fill="none" stroke="#fff" stroke-width="5"><ellipse cx="50" cy="50" rx="31" ry="12"/><ellipse cx="50" cy="50" rx="31" ry="12" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="31" ry="12" transform="rotate(120 50 50)"/></g><circle cx="50" cy="50" r="7" fill="#fff"/>`,
-  ink:c=>`<path d="M50 18C50 18 27 46 27 61a23 23 0 0046 0C73 46 50 18 50 18z" fill="#fff"/><circle cx="42" cy="63" r="6.5" fill="${c}"/>`,
-  owls:c=>`<mask id="m"><rect width="100" height="100" fill="#fff"/><circle cx="62" cy="40" r="26" fill="#000"/></mask><circle cx="46" cy="54" r="28" fill="#fff" mask="url(#m)"/><path d="M72 24l3.2 7.6 7.6 3.2-7.6 3.2L72 45.6l-3.2-7.6-7.6-3.2 7.6-3.2z" fill="#fff"/>`
-};
-const BASE=[
- {id:'forge',name:'Pixel Forge',tag:'Indie devs & game makers',color:'#ff7a3d',members:1840,seed:[
-   ['@kira',12,'Jam theme just dropped: "gravity is optional". Who is in?',34],['@bytewolf',95,'Shipped my first shader today. It looks like soup. I love it.',21],['@nanoo',420,'Hot take: 16 colors is plenty.',57]]},
- {id:'beats',name:'Neon Beats',tag:'Producers, DJs & night sounds',color:'#b45cff',members:2310,seed:[
-   ['@luma',8,'Uploaded a 90 bpm loop pack. Free, no strings.',48],['@dj.sol',150,'Anyone mixing live from the browser? Looking for tips.',19],['@vex',600,'Basslines at 3am hit different.',63]]},
- {id:'roots',name:'Green Roots',tag:'Plants, gardens & slow living',color:'#3ddc84',members:960,seed:[
-   ['@fernando',30,'My monstera just grew a new leaf. Proud parent moment.',72],['@mate.verde',210,'Compost starter guide pinned below, ask anything.',25],['@yuyo',780,'What grows best on a tiny balcony?',14]]},
- {id:'labs',name:'Deep Blue Labs',tag:'Science, space & big questions',color:'#3aa0ff',members:3120,seed:[
-   ['@dr.orbit',5,'New exoplanet candidate is in the data. Thread inside.',121],['@quark',75,'Explain entropy like I am five. Best answer wins nothing, only glory.',44],['@nova',500,'Reminder: look up tonight.',90]]},
- {id:'ink',name:'Ink & Canvas',tag:'Illustration, design & color',color:'#ff4d8d',members:2705,seed:[
-   ['@pixa',18,'Weekly prompt: "a city that floats". Post by Sunday.',58],['@sumi',240,'Warm gray + hot pink is a perfect combo and I will not be taking questions.',66],['@lino',900,'Sharing my brush set, 12 free brushes.',37]]},
- {id:'owls',name:'Night Owls',tag:'Late-night chat & good company',color:'#ffd23f',members:4020,seed:[
-   ['@insomnia',3,'It is 3am, what are we all doing awake?',81],['@moth',60,'Drop one song that fits this exact hour.',52],['@luz',360,'Tea or coffee at this time? Be honest.',29]]}
-];
-const BASE_IDS=new Set(BASE.map(b=>b.id));
-const BOOT=Date.now();
-const DEMO=[['Mate Club','🧉','Yerba, charla y buena onda'],['Asado Society','🥩','Fire, meat and patience'],['Tango Café','💃','Slow nights, sharp steps'],['Pixel Arcade','🕹️','Retro games forever'],['Skate Society','🛹','Spots, tricks, clips'],['Chess Orbit','♟️','Openings and blunders'],['Vinyl Vault','💿','Crate diggers unite'],['Cine Club','🎞️','Films worth staying up for'],['Moto Crew','🏍️','Two wheels, no rules'],['Sneaker Drop','👟','Fresh pairs, fair prices'],['Lofi Lounge','🎧','Chill beats to build to'],['Paw Planet','🐾','All the good pets'],['Dev Den','💻','Ship it small'],['Book Void','📚','One more chapter'],['Street Lens','📷','Cities in frames'],['Gym Gravity','🏋️','Lift, log, repeat'],['Coffee Cartel','☕','Beans over everything'],['Anime Nebula','🌸','Seasonal hype and classics'],['Fútbol Fanáticos','⚽','Fierce, loyal, loud'],['Cosmic Cooks','🍳','Recipes from the void']];
-
-/* ============ saved state ============ */
-let S={joined:{},likes:{},posts:{},custom:[]};
-try{const r=localStorage.getItem('orbit_v2');if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
-if(!Array.isArray(S.custom))S.custom=[];
-function save(){try{localStorage.setItem('orbit_v2',JSON.stringify(S))}catch(e){}}
-
-/* ============ communities (hydrated) ============ */
 const HY={};let ALL=[],byId={};
-function makeSrc(d){
-  if(d.logoImg)return d.logoImg;
-  if(d.logoUrl)return d.logoUrl;
-  const g=GLYPH[d.id]?GLYPH[d.id](d.color):textGlyph(d.logo||initials(d.name||'?'));
-  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(mk(d.color,g));
-}
-function hyd(d,born,pend){
+
+// Convert DB community to Planet object
+function hyd(d){
   if(HY[d.id])return HY[d.id];
   const c=Object.assign({},d);
-  c.custom=!BASE_IDS.has(d.id);c.seed=d.seed||[];
-  c.src=makeSrc(d);c.img=new Image();c.img.src=c.src;
-  c.born=born;c.pend=!!pend;c.pulseAt=-99;c.pos=[0,0,0];c.pj={x:0,y:0,z:1,s:1};c.off=undefined;c.lane=null;
+  c.src = d.logo_url || 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${d.color||'#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="40" fill="#fff">${esc(d.emoji||initials(d.name))}</text></svg>`);
+  c.img=new Image();c.img.src=c.src;
+  c.born=RT+.3;c.pulseAt=-99;c.pos=[0,0,0];c.pj={x:0,y:0,z:1,s:1};c.off=undefined;c.lane=null;
   HY[d.id]=c;return c;
 }
-function syncAll(){
-  ALL=BASE.concat(S.custom).map((d,i)=>hyd(d,RT+.3+Math.min(i*.14,2.6),false));
+
+async function syncAll(){
+  const { data: rooms } = await sb.from('orbit_communities').select('*').neq('id', '00000000-0000-0000-0000-000000000000');
+  ALL = (rooms || []).map(r => hyd({ id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji, members: 1 }));
   byId={};ALL.forEach(c=>byId[c.id]=c);
 }
 
-/* ============ orbit layout: lanes ============ */
 const LANES=[];let BELTS=[],outerR=250,sizeMul=1;
 function laneDef(i){
   const r=250+i*92;
@@ -184,7 +210,7 @@ function layout(){
   LANES.length=0;
   let i=0,lane=0;
   while(i<ALL.length){
-    const cap=1+Math.floor(lane/4);          // outer lanes hold more planets
+    const cap=1+Math.floor(lane/4);
     const L=laneDef(lane);
     for(let k=0;k<cap&&i<ALL.length;k++)L.members.push(ALL[i++]);
     LANES.push(L);lane++;
@@ -203,7 +229,6 @@ function layout(){
 }
 const defDist=()=>clamp((outerR+110)*2.0,1250,7500);
 
-/* ============ camera / projection ============ */
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1,F=400;
 const cam={yaw:.6,pitch:.5,dist:1500,tx:0,ty:0,tz:0};
@@ -217,9 +242,7 @@ function P(x,y,z,noT){
   const y2=y*ca.cp+z1*ca.sp,z2=-y*ca.sp+z1*ca.cp+cam.dist;
   PS=F/z2;PX=W/2+x1*PS;PY=cenY-y2*PS;PZ=z2;
 }
-function proj(x,y,z,noT){P(x,y,z,noT);return{x:PX,y:PY,z:PZ,s:PS}}
 
-/* ============ backdrop ============ */
 const STARS=[];
 for(let i=0;i<560;i++){
   const u=Math.random()*2-1,a=Math.random()*TAU,r=Math.sqrt(1-u*u);
@@ -247,12 +270,9 @@ function resize(){
 }
 addEventListener('resize',resize);
 
-/* ============ state for interaction ============ */
-let paused=false,spin=true,lastInput=0,selId=null,hoverId=null,hits=[],panelMode='normal';
-let hintDone=false;
+let paused=false,spin=true,lastInput=0,selId=null,hoverId=null,hits=[];
 const waves=[],parts=[];
 
-/* ============ effects ============ */
 function burst(c){
   waves.push({t0:RT,color:c.color});
   const q=c.pos;
@@ -263,7 +283,6 @@ function burst(c){
 }
 function easeOutBack(x){const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)}
 
-/* ============ drawing ============ */
 function drawStarsBg(t){
   for(const s of STARS){
     P(s.x*9000,s.y*9000,s.z*9000,true);
@@ -335,7 +354,7 @@ function drawWaves(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
 }
 function drawStar(p,t){
-  const R=Math.max(STAR_R*p.s,24);
+  const R=Math.max(80*p.s,24);
   let g=ctx.createRadialGradient(p.x,p.y,R*.5,p.x,p.y,R*5.5);
   g.addColorStop(0,'rgba(255,190,90,.55)');g.addColorStop(.35,'rgba(255,120,40,.16)');g.addColorStop(1,'rgba(255,100,30,0)');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,R*5.5,0,7);ctx.fill();
@@ -362,10 +381,9 @@ function drawStar(p,t){
   const act=selId==='core'||hoverId==='core';
   ctx.font=`800 ${clamp(R*.26,10,14)}px system-ui`;ctx.textAlign='center';
   ctx.fillStyle=act?'#fff':'rgba(255,225,170,.9)';ctx.shadowColor='#000';ctx.shadowBlur=6;
-  ctx.fillText('ORBIT CORE',p.x,p.y+R+18);ctx.shadowBlur=0;
+  ctx.fillText('GENERAL CHAT',p.x,p.y+R+18);ctx.shadowBlur=0;
   hits.push({id:'core',x:p.x,y:p.y,r:R,z:p.z});
 }
-const STAR_R=80;
 const TX=new Float32Array(32),TY=new Float32Array(32);
 function drawMoon(m){
   const r=m.r;
@@ -379,7 +397,6 @@ function drawPlanet(c,sp){
   const sz=c.baseSize*sizeMul;
   const r=Math.max(sz*p.s,11)*sc;
   const act=selId===c.id,hov=hoverId===c.id;
-  // trail
   let nt=0;TX[0]=p.x;TY[0]=p.y;
   for(let k=1;k<=22;k++){
     lanePt(L,kep(c.M-L.dir*k*.05,L.e),LP);P(LP[0],LP[1],LP[2]);
@@ -394,7 +411,6 @@ function drawPlanet(c,sp){
     }
     ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
   }
-  // moons
   const nm=clamp(Math.floor((c.members||0)/2200),0,3),moons=[];
   if(r>9)for(let k=0;k<nm;k++){
     const am=T*(1.1+.5*k)+k*2.1,rr=sz*(1.9+.8*k);
@@ -403,11 +419,9 @@ function drawPlanet(c,sp){
   }
   for(const m of moons)if(m.z>p.z)drawMoon(m);
   let lx=sp.x-p.x,ly=sp.y-p.y;const Ln=Math.hypot(lx,ly)||1;lx/=Ln;ly/=Ln;
-  // atmosphere
   let g=ctx.createRadialGradient(p.x,p.y,r*.85,p.x,p.y,r*1.7);
   g.addColorStop(0,c.color+'66');g.addColorStop(1,c.color+'00');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r*1.7,0,7);ctx.fill();
-  // body
   g=ctx.createRadialGradient(p.x+lx*r*.35,p.y+ly*r*.35,r*.1,p.x,p.y,r*1.05);
   g.addColorStop(0,lighten(c.color,.55));g.addColorStop(.55,c.color);g.addColorStop(1,'#07081a');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.fill();
@@ -424,7 +438,6 @@ function drawPlanet(c,sp){
   ctx.lineWidth=1.5;ctx.strokeStyle=c.color;ctx.globalAlpha=.8;
   ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.stroke();ctx.globalAlpha=1;
   for(const m of moons)if(m.z<=p.z)drawMoon(m);
-  // birth flash + post pulse
   if(prog<1){
     ctx.globalCompositeOperation='lighter';ctx.globalAlpha=(1-prog)*.7;ctx.fillStyle=c.color;
     ctx.beginPath();ctx.arc(p.x,p.y,r*2.2,0,7);ctx.fill();
@@ -446,33 +459,6 @@ function drawPlanet(c,sp){
   }
   hits.push({id:c.id,x:p.x,y:p.y,r:r*1.1,z:p.z});
 }
-/* comet */
-const COMET=(()=>{const e=.88,inc=.9,node=.7;return{r:1350,e,b:Math.sqrt(1-e*e),inc,node,ci:Math.cos(inc),si:Math.sin(inc),cn:Math.cos(node),sn:Math.sin(node)}})();
-const CP=[0,0,0];
-function cometState(){
-  const M=T*.05+1.2,E=kep(M,COMET.e,8);
-  lanePt(COMET,E,CP);
-  return CP;
-}
-function drawComet(sp){
-  const q=cometState();
-  const d=Math.hypot(q[0],q[1],q[2])||1;
-  P(q[0],q[1],q[2]);if(PZ<40)return;
-  const hx=PX,hy=PY,hs=PS;
-  const tl=260;P(q[0]+q[0]/d*tl,q[1]+q[1]/d*tl,q[2]+q[2]/d*tl);
-  const tx=PX,ty=PY;
-  const inten=clamp(1.25-d/1500,.25,1);
-  ctx.globalCompositeOperation='lighter';
-  const g=ctx.createLinearGradient(hx,hy,tx,ty);
-  g.addColorStop(0,`rgba(190,225,255,${.75*inten})`);g.addColorStop(1,'rgba(120,170,255,0)');
-  const nx=-(ty-hy),ny=tx-hx,nl=Math.hypot(nx,ny)||1,w=Math.max(2,6*hs*40*.1);
-  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(hx+nx/nl*w,hy+ny/nl*w);ctx.lineTo(tx,ty);ctx.lineTo(hx-nx/nl*w,hy-ny/nl*w);ctx.fill();
-  const hr=Math.max(2.6,9*hs*5);
-  const hg=ctx.createRadialGradient(hx,hy,0,hx,hy,hr*3);
-  hg.addColorStop(0,'rgba(255,255,255,.95)');hg.addColorStop(.3,'rgba(170,215,255,.5)');hg.addColorStop(1,'rgba(120,170,255,0)');
-  ctx.fillStyle=hg;ctx.beginPath();ctx.arc(hx,hy,hr*3,0,7);ctx.fill();
-  ctx.globalCompositeOperation='source-over';
-}
 function drawFX(dt){
   ctx.globalCompositeOperation='lighter';
   for(let i=parts.length-1;i>=0;i--){
@@ -486,7 +472,6 @@ function drawFX(dt){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
 }
 
-/* ============ main loop ============ */
 let last=performance.now();
 function frame(now){
   const dt=Math.min(.05,(now-last)/1000||.016);last=now;RT=now/1000;
@@ -519,8 +504,6 @@ function frame(now){
     c.pj.x=PX;c.pj.y=PY;c.pj.z=PZ;c.pj.s=PS;
     list.push({z:PZ,f:()=>drawPlanet(c,sp)});
   }
-  const cq=cometState();P(cq[0],cq[1],cq[2]);
-  if(PZ>40){const cz=PZ;list.push({z:cz,f:()=>drawComet(sp)})}
   list.sort((a,b)=>b.z-a.z);
   for(const o of list)o.f();
   drawBelts(false,sp.z);
@@ -528,7 +511,6 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
-/* ============ input ============ */
 let dragging=false,down=null,pinch0=0;const ptrs=new Map();
 const pd=()=>{const a=[...ptrs.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)};
 function hitAt(x,y){
@@ -536,13 +518,10 @@ function hitAt(x,y){
   for(const h of hits){if(Math.hypot(h.x-x,h.y-y)<=h.r+8&&(!best||h.z<best.z))best=h}
   return best;
 }
-function fadeHint(){
-  if(hintDone)return;hintDone=true;updateStats();
-}
 cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   down={x:e.clientX,y:e.clientY,t:performance.now(),moved:0};lastInput=performance.now();dragging=true;
-  if(ptrs.size===2)pinch0=pd();cv.classList.add('drag');fadeHint();
+  if(ptrs.size===2)pinch0=pd();cv.classList.add('drag');
 });
 cv.addEventListener('pointermove',e=>{
   const p=ptrs.get(e.pointerId);
@@ -560,14 +539,15 @@ function up(e){
   }
 }
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
-cv.addEventListener('wheel',e=>{e.preventDefault();want.dist=clamp(want.dist*Math.exp(e.deltaY*.0012),260,defDist()*2.4);lastInput=performance.now();fadeHint()},{passive:false});
-addEventListener('keydown',e=>{if(e.key==='Escape')select(null)});
-document.getElementById('bPause').onclick=function(){paused=!paused;this.classList.toggle('on',paused);this.textContent=paused?'Resume':'Pause'};
-document.getElementById('bSpin').onclick=function(){spin=!spin;this.classList.toggle('on',spin)};
-document.getElementById('bReset').onclick=()=>{select(null);cam.yaw=.6;cam.pitch=.5;want.dist=defDist();lastInput=performance.now()};
+cv.addEventListener('wheel',e=>{e.preventDefault();want.dist=clamp(want.dist*Math.exp(e.deltaY*.0012),260,defDist()*2.4);lastInput=performance.now()},{passive:false});
 
-/* ============ UI ============ */
-const sheet=document.getElementById('sheet'),dock=document.getElementById('dock'),hintEl=document.getElementById('hint');
+// ═══════════════════════════════════════════════════════
+// 2. UI & CHAT LOGIC (Supabase Real-time)
+// ═══════════════════════════════════════════════════════
+const sheet=document.getElementById('sheet'),dock=document.getElementById('dock');
+const modal=document.getElementById('modal'), caInput=document.getElementById('caInput'), createBtn=document.getElementById('createBtn'), modalCloseBtn=document.getElementById('modalCloseBtn');
+let currentRoomId=null, currentChannel=null;
+
 function h(tag,props,...kids){
   const e=document.createElement(tag);
   if(props)for(const k in props){
@@ -577,198 +557,154 @@ function h(tag,props,...kids){
   for(const kid of kids.flat()){if(kid==null)continue;e.append(kid.nodeType?kid:document.createTextNode(kid))}
   return e;
 }
-const fmt=n=>n>=1000?(n/1000).toFixed(1).replace('.0','')+'k':String(n);
-function rel(ts){const m=Math.max(1,Math.round((Date.now()-ts)/60000));if(m<60)return m+'m';if(m<1440)return Math.round(m/60)+'h';return Math.round(m/1440)+'d'}
-function logo(c){return h('img',{src:c.src,alt:c.name})}
-function updateStats(){if(hintDone){hintEl.textContent=`${ALL.length} worlds · ${LANES.length} orbits`}}
+const rel=(ts)=>{const m=Math.max(1,Math.round((Date.now()-new Date(ts).getTime())/60000));return m<60?m+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
 
 function buildDock(){
   dock.innerHTML='';
-  dock.append(h('button',{class:'chip core',onclick:()=>select('core')},'✦ Core'));
-  dock.append(h('button',{class:'chip add',onclick:()=>select('core','form')},'＋ New'));
-  ALL.forEach(c=>dock.append(h('button',{class:'chip',onclick:()=>select(c.id)},logo(c),c.name)));
+  dock.append(h('button',{class:'chip core',onclick:()=>select('core')},'✦ General'));
+  dock.append(h('button',{class:'chip add',onclick:()=>modal.classList.add('open')},'＋ New World'));
+  ALL.forEach(c=>dock.append(h('button',{class:'chip',onclick:()=>select(c.id)},h('img',{src:c.src,alt:c.name}),c.name)));
 }
-function postsFor(c){
-  const mine=(S.posts[c.id]||[]).map(p=>({key:c.id+':u:'+p.ts,a:'you',ts:p.ts,t:p.t,l:0,c}));
-  const seeds=c.seed.map((s,i)=>({key:c.id+':s:'+i,a:s[0],ts:BOOT-s[1]*60000,t:s[2],l:s[3],c}));
-  return mine.concat(seeds).sort((a,b)=>b.ts-a.ts);
-}
-function postEl(p,showTag,rerender){
-  const liked=!!S.likes[p.key];
-  return h('div',{class:'post',style:`--c:${p.c.color}`},
-    h('div',{class:'m'},h('div',{class:'av'},p.a.replace('@','').charAt(0).toUpperCase()),h('b',null,p.a),'· '+rel(p.ts),showTag?logo(p.c):null),
-    h('p',null,p.t),
-    h('button',{class:'like'+(liked?' on':''),onclick:()=>{if(liked)delete S.likes[p.key];else S.likes[p.key]=1;save();rerender()}},(liked?'♥ ':'♡ ')+(p.l+(liked?1:0)))
-  );
-}
-function renderComm(c){
-  sheet.style.setProperty('--c',c.color);
-  const joined=!!S.joined[c.id];
-  const feed=h('div',{class:'feed'});
-  let armed=false;
-  const del=h('button',{class:'del',onclick:()=>{if(!armed){armed=true;del.textContent='Tap again to delete this world';return}removeCommunity(c.id)}},'Delete this world');
-  const fill=()=>{
-    feed.innerHTML='';
-    const ps=postsFor(c);
-    if(!ps.length)feed.append(h('p',{style:'color:var(--mut);font-size:13px;margin:4px 0'},'Quiet orbit. Be the first to post.'));
-    ps.forEach(p=>feed.append(postEl(p,false,fill)));
-    if(c.custom)feed.append(del);
-  };
-  fill();
-  const input=h('input',{placeholder:`Post to ${c.name}…`,maxlength:'240'});
-  const submit=()=>{
-    const t=input.value.trim();if(!t)return;
-    (S.posts[c.id]=S.posts[c.id]||[]).unshift({ts:Date.now(),t});S.joined[c.id]=1;save();c.pulseAt=RT;renderPanel();
-  };
-  input.onkeydown=e=>{if(e.key==='Enter')submit()};
-  sheet.append(
-    h('div',{class:'grab'}),
-    h('div',{class:'head'},logo(c),
-      h('div',{class:'t'},h('h2',null,c.name),h('p',null,`${c.tag} · ${fmt((c.members||0)+(joined?1:0))} members`)),
-      h('button',{class:'join'+(joined?' on':''),onclick:()=>{if(joined)delete S.joined[c.id];else S.joined[c.id]=1;save();renderPanel()}},joined?'Joined':'Join'),
-      h('button',{class:'x',onclick:()=>select(null),'aria-label':'Close'},'×')),
-    h('div',{class:'compose'},input,h('button',{onclick:submit},'Post')),
-    feed
-  );
-}
-function renderCore(){
-  sheet.style.setProperty('--c','#ffb347');
-  const feed=h('div',{class:'feed'});
-  let q='';
-  const cta=h('button',{class:'card cta',onclick:()=>select('core','form')},h('div',{class:'plus'},'＋'),h('div',null,h('b',null,'Create a community'),h('span',null,'Adds a new planet to the system')));
-  const fill=()=>{
-    feed.innerHTML='';
-    if(!q)feed.append(cta);
-    feed.append(h('div',{class:'h3'},q?'Results':'Communities · '+ALL.length));
-    const list=ALL.filter(c=>!q||(c.name+' '+c.tag).toLowerCase().includes(q));
-    list.forEach(c=>{
-      const j=!!S.joined[c.id];
-      feed.append(h('button',{class:'card',onclick:()=>select(c.id)},logo(c),
-        h('div',null,h('b',null,c.name),h('span',null,`${c.tag} · ${fmt((c.members||0)+(j?1:0))}${j?' · joined':''}`))));
-    });
-    if(!list.length)feed.append(h('p',{style:'color:var(--mut);font-size:13px;margin:4px 0'},'No worlds match.'));
-    if(!q){
-      feed.append(h('div',{class:'h3'},'Latest transmissions'));
-      const all=ALL.flatMap(postsFor).sort((a,b)=>b.ts-a.ts).slice(0,10);
-      all.forEach(p=>feed.append(postEl(p,true,fill)));
-      const row=h('div',{class:'row2'},h('button',{class:'btn',onclick:()=>addDemo(10)},'✨ Add 10 demo worlds'));
-      if(S.custom.some(x=>x.demo))row.append(h('button',{class:'btn',onclick:removeDemo},'Remove demo worlds'));
-      feed.append(h('div',{class:'h3'},'Stress test'),row);
-    }
-  };
-  fill();
-  const total=ALL.reduce((n,c)=>n+(c.members||0)+(S.joined[c.id]?1:0),0);
-  const head=h('div',{class:'head'},
-    h('div',{class:'av',style:'width:52px;height:52px;font-size:24px;background:radial-gradient(circle at 35% 35%,#fffbe6,#ffb347 55%,#ff7a2a)'},'✦'),
-    h('div',{class:'t'},h('h2',null,'Orbit Core'),h('p',null,`${ALL.length} communities · ${fmt(total)} citizens · ${LANES.length} orbits`)),
-    h('button',{class:'x',onclick:()=>select(null),'aria-label':'Close'},'×'));
-  sheet.append(h('div',{class:'grab'}),head);
-  if(ALL.length>8)sheet.append(h('div',{class:'searchrow'},h('input',{type:'text',placeholder:'Search worlds…',oninput:e=>{q=e.target.value.trim().toLowerCase();fill()}})));
-  sheet.append(feed);
-}
-function renderForm(){
-  const st={name:'',tag:'',color:COLORS[S.custom.length%COLORS.length],logo:'',img:null};
-  sheet.style.setProperty('--c',st.color);
-  const prv=h('img',{class:'prv',alt:''});
-  const create=h('button',{class:'primary'},'Launch community');
-  const upd=()=>{prv.src=makeSrc({color:st.color,logo:st.logo,name:st.name||'?',logoImg:st.img});sheet.style.setProperty('--c',st.color);create.disabled=st.name.trim().length<2};
-  const name=h('input',{type:'text',placeholder:'e.g. Midnight Bakers',maxlength:'28'});
-  name.oninput=()=>{st.name=name.value;upd()};
-  const tag=h('input',{type:'text',placeholder:'What is it about?',maxlength:'48'});
-  tag.oninput=()=>{st.tag=tag.value};
-  const lg=h('input',{type:'text',placeholder:'Letter or emoji',maxlength:'6'});
-  lg.oninput=()=>{st.logo=lg.value;st.img=null;upd()};
-  const file=h('input',{type:'file',accept:'image/*',style:'display:none'});
-  file.onchange=()=>{
-    const f=file.files&&file.files[0];if(!f)return;
-    const rd=new FileReader();
-    rd.onload=()=>{const im=new Image();im.onload=()=>{
-      const s=Math.min(im.width,im.height),cvs=document.createElement('canvas');cvs.width=cvs.height=120;
-      const x=cvs.getContext('2d');x.beginPath();x.arc(60,60,60,0,TAU);x.clip();
-      x.drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,120,120);
-      st.img=cvs.toDataURL('image/png');upd();
-    };im.src=rd.result};
-    rd.readAsDataURL(f);
-  };
-  const sw=h('div',{class:'sw'});
-  const swBtns=COLORS.map(col=>{
-    const b=h('button',{style:`background:${col};color:${col}`,'aria-label':col});
-    b.onclick=()=>{st.color=col;swBtns.forEach(x=>x.classList.remove('sel'));b.classList.add('sel');upd()};
-    if(col===st.color)b.classList.add('sel');sw.append(b);return b;
-  });
-  create.onclick=()=>{
-    if(st.name.trim().length<2)return;
-    addCommunity({name:st.name.trim(),tag:st.tag.trim()||'A brand new world',color:st.color,logo:st.logo.trim(),logoImg:st.img});
-  };
-  upd();
-  sheet.append(
-    h('div',{class:'grab'}),
-    h('div',{class:'head'},prv,h('div',{class:'t'},h('h2',null,'New community'),h('p',null,'It spawns as a new planet in orbit')),
-      h('button',{class:'x',onclick:()=>select('core'),'aria-label':'Back'},'×')),
-    h('div',{class:'form'},
-      h('div',null,h('label',null,'Name'),name),
-      h('div',null,h('label',null,'Tagline'),tag),
-      h('div',null,h('label',null,'Color'),sw),
-      h('div',null,h('label',null,'Logo'),h('div',{class:'logorow'},lg,h('button',{class:'btn',onclick:()=>file.click()},'Upload image'),file)),
-      create)
-  );
-}
-function renderPanel(){
-  sheet.innerHTML='';
-  if(!selId){sheet.classList.remove('open');return}
-  sheet.classList.add('open');
-  if(panelMode==='form')renderForm();
-  else if(selId==='core')renderCore();
-  else if(byId[selId])renderComm(byId[selId]);
-}
-function select(id,mode){
-  selId=id;panelMode=mode||'normal';lastInput=performance.now();
-  want.dist=id==='core'?820:id?400*Math.max(1,sizeMul*.9):defDist();
-  wantCenY=id?H*.25:H*.5;
-  dock.classList.toggle('hide',!!id);
-  renderPanel();
-}
-function refreshAll(){syncAll();layout();buildDock();updateStats()}
 
-/* ============ adding / removing communities ============ */
-function addCommunity(d){
-  const rec={id:'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:d.name,tag:d.tag,color:d.color,logo:d.logo||'',logoImg:d.logoImg||null,members:1,seed:[],demo:false};
-  S.custom.push(rec);S.joined[rec.id]=1;save();
-  hyd(rec,RT+.5,true);
-  refreshAll();
-  select(rec.id);
-}
-function addDemo(n){
-  const used=new Set(ALL.map(c=>c.name));
-  const pool=DEMO.filter(x=>!used.has(x[0])).sort(()=>Math.random()-.5);
-  const extra=['🪐','🌍','🌙','⭐','☄️','🛰️','🚀'];
-  for(let i=0;i<n;i++){
-    const it=pool[i]||['World '+(ALL.length+i+1),extra[i%extra.length],'A freshly discovered world'];
-    const rec={id:'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:it[0],tag:it[2],color:Math.random()<.5?COLORS[Math.floor(Math.random()*COLORS.length)]:hsl2hex(Math.random()*360,.8,.58),logo:it[1],logoImg:null,
-      members:300+Math.floor(Math.random()*3400),demo:true,
-      seed:[['@founder',20+i*7,'Welcome to '+it[0]+'! Say hi and tell us what brought you here.',12+i],['@regular',90+i*11,'Share the best thing you found this week.',5+i]]};
-    S.custom.push(rec);hyd(rec,RT+.4+i*.22,true);
+async function openChat(roomId, roomName, roomColor){
+  currentRoomId = roomId;
+  sheet.style.setProperty('--c', roomColor);
+  
+  const feed = h('div',{class:'feed'}, h('div',{class:'loading'},'Connecting to network...'));
+  
+  // Real-time
+  if(currentChannel) sb.removeChannel(currentChannel);
+  currentChannel = sb.channel('room_'+roomId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orbit_messages', filter: `community_id=eq.${roomId}` }, payload => {
+        if(payload.new.community_id === currentRoomId) {
+            const loader = feed.querySelector('.loading');
+            if(loader) loader.remove();
+            feed.append(h('div',{class:'msg'},
+                h('div',{class:'m'}, h('b',null,payload.new.username), '· '+rel(payload.new.created_at)),
+                h('p',null,payload.new.content)
+            ));
+            feed.scrollTop = feed.scrollHeight;
+        }
+    }).subscribe();
+
+  // History
+  const { data } = await sb.from('orbit_messages').select('*').eq('community_id', roomId).order('created_at', {ascending:true}).limit(100);
+  feed.innerHTML = '';
+  if(data && data.length) {
+      data.forEach(m => {
+          feed.append(h('div',{class:'msg'},
+              h('div',{class:'m'}, h('b',null,m.username), '· '+rel(m.created_at)),
+              h('p',null,m.content)
+          ));
+      });
+  } else {
+      feed.append(h('div',{class:'loading'},'Quiet orbit. Be the first to post.'));
   }
-  save();refreshAll();
-  want.dist=defDist();
-  select('core');want.dist=defDist();
-}
-function dropIds(ids){
-  const set=new Set(ids);
-  S.custom=S.custom.filter(x=>!set.has(x.id));
-  ids.forEach(id=>{delete S.joined[id];delete S.posts[id];delete HY[id];for(const k in S.likes)if(k.indexOf(id+':')===0)delete S.likes[k]});
-  save();
-}
-function removeCommunity(id){dropIds([id]);refreshAll();select(null)}
-function removeDemo(){dropIds(S.custom.filter(x=>x.demo).map(x=>x.id));refreshAll();select('core')}
 
-/* ============ boot ============ */
-RT=performance.now()/1000;
-syncAll();layout();buildDock();
-resize();cenY=wantCenY;
-want.dist=defDist();cam.dist=defDist()*1.7;
-waves.push({t0:RT+.1,color:'#ffb347'});
+  const input = h('input',{placeholder:`Message #${roomName}...`, maxlength:'200'});
+  const send = async () => {
+      const txt = input.value.trim(); if(!txt) return; input.value='';
+      await sb.from('orbit_messages').insert({ community_id: roomId, username: myUsername, content: txt });
+  };
+  input.onkeydown = e => { if(e.key==='Enter') send() };
+
+  const cObj = ALL.find(c => c.id === roomId);
+  const headImg = roomId === '00000000-0000-0000-0000-000000000000' ? 
+    h('div',{class:'av',style:'width:52px;height:52px;font-size:24px;background:radial-gradient(circle at 35% 35%,#fffbe6,#ffb347 55%,#ff7a2a);border-radius:50%;display:grid;place-items:center;box-shadow:0 0 18px rgba(255,179,71,0.6)'},'✦') :
+    h('img',{src:cObj.src,alt:roomName});
+
+  sheet.innerHTML = '';
+  sheet.append(
+      h('div',{class:'grab'}),
+      h('div',{class:'head'}, headImg,
+          h('div',{class:'t'},h('h2',null,roomName),h('p',null, roomId === '00000000-0000-0000-0000-000000000000' ? 'General Broadcast' : cObj.tag || 'Community')),
+          h('button',{class:'x',onclick:()=>select(null)},'×')
+      ),
+      h('div',{class:'compose'}, input, h('button',{onclick:send},'Send')),
+      feed
+  );
+  setTimeout(()=> { feed.scrollTop = feed.scrollHeight; }, 100);
+}
+
+function select(id){
+  selId=id;
+  want.dist = id === 'core' ? 820 : id ? 400 : defDist();
+  wantCenY = id ? H*.25 : H*.5;
+  dock.classList.toggle('hide', !!id);
+  
+  if(!id) { sheet.classList.remove('open'); if(currentChannel) sb.removeChannel(currentChannel); return; }
+  sheet.classList.add('open');
+  
+  if(id === 'core') openChat('00000000-0000-0000-0000-000000000000', 'General Chat', '#ffb347');
+  else {
+      const room = ALL.find(c=>c.id===id);
+      if(room) openChat(room.id, room.name, room.color);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// 3. CA CREATION MODAL LOGIC
+// ═══════════════════════════════════════════════════════
+modalCloseBtn.onclick = () => { modal.classList.remove('open'); caInput.value = ''; };
+modal.onclick = (e) => { if (e.target === modal) { modal.classList.remove('open'); caInput.value = ''; } };
+
+createBtn.onclick = async () => {
+    const ca = caInput.value.trim();
+    if(!ca || ca.length < 30) { alert("Invalid CA"); return; }
+    
+    createBtn.disabled = true;
+    createBtn.textContent = "SCANNING BLOCKCHAIN...";
+    
+    try {
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+        const json = await res.json();
+        const pair = json.pairs?.[0];
+        
+        if(!pair) throw new Error("Token not found on DexScreener");
+        
+        const name = pair.baseToken.name || 'Unknown';
+        const symbol = pair.baseToken.symbol || 'TOKEN';
+        const logo = pair.info?.imageUrl || '';
+        const color = COLORS[Math.floor(Math.random()*COLORS.length)];
+        
+        const { error } = await sb.from('orbit_communities').insert({
+            name: name,
+            tagline: symbol,
+            ca: ca,
+            logo_url: logo,
+            color: color,
+            emoji: '🪐'
+        });
+        
+        if(error) throw error;
+        
+        modal.classList.remove('open');
+        caInput.value = '';
+        await initApp(); // Reload canvas with new planet
+        
+    } catch (err) {
+        alert("Error: " + err.message);
+    } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = "Launch Planet";
+    }
+};
+
+// ═══════════════════════════════════════════════════════
+// 4. BOOT
+// ═══════════════════════════════════════════════════════
+async function initApp() {
+    await syncAll();
+    layout();
+    buildDock();
+    if(!W) resize();
+    cenY = wantCenY;
+    want.dist = defDist();
+    cam.dist = defDist() * 1.7;
+}
+
 requestAnimationFrame(frame);
+initApp();
 </script>
 </body>
 </html>
