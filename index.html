@@ -98,15 +98,20 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 
 <script>
 // ═══════════════════════════════════════════════════════
-// 0. SUPABASE & AUTH SETUP
+// 0. SETUP KEYS & AUTH
 // ═══════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://lmakgwdrwdhjofgyovkj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_50c1y3L6RfgVDqZPETvUtA_yZQt5our';
+
+// ⚑ HELIUS RPC MOVED HERE (So it loads once, cleanly)
+const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=fa7e6515-19de-45de-a7d1-35a64a0d9a1a";
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let myUsername = localStorage.getItem('orbit_user') || 'Anon';
 let walletAddress = null;
 let isXVerified = localStorage.getItem('orbit_x_verified') === 'true';
+let xHandle = localStorage.getItem('orbit_x_handle') || '';
 
 const phantomBtn = document.getElementById('phantomBtn');
 const xBtn = document.getElementById('xBtn');
@@ -119,8 +124,9 @@ function updateAuthUI() {
         phantomBtn.textContent = 'CONNECT PHANTOM';
         phantomBtn.classList.remove('connected');
     }
-    if (isXVerified) {
-        xBtn.textContent = 'X VERIFIED';
+    
+    if (isXVerified && xHandle) {
+        xBtn.textContent = '@' + xHandle;
         xBtn.classList.add('verified-x');
     } else {
         xBtn.textContent = 'VERIFY X';
@@ -145,16 +151,39 @@ phantomBtn.onclick = async () => {
     } catch (err) { console.error(err); }
 };
 
-xBtn.onclick = () => {
+// ⚑ REAL X OAUTH LOGIC
+xBtn.onclick = async () => {
     if (!walletAddress) { alert("Connect Phantom first!"); return; }
     if (isXVerified) return;
-    alert("Redirecting to X for verification... (Mock)");
-    setTimeout(() => {
-        isXVerified = true;
-        localStorage.setItem('orbit_x_verified', 'true');
-        updateAuthUI();
-    }, 1000);
+    
+    xBtn.textContent = "AUTHENTICATING...";
+    xBtn.disabled = true;
+    
+    const { data, error } = await sb.auth.signInWithOAuth({
+        provider: 'twitter',
+        options: { redirectTo: window.location.href }
+    });
+    
+    if (error) {
+        alert("Auth Error: " + error.message);
+        xBtn.textContent = "VERIFY X";
+        xBtn.disabled = false;
+    }
 };
+
+// Listen for X Auth Redirect Callback
+sb.auth.onAuthStateChange(async (event, session) => {
+    if (session && session.user) {
+        const handle = session.user.user_metadata?.preferred_username || session.user.user_metadata?.user_name || '';
+        if (handle) {
+            isXVerified = true;
+            xHandle = handle;
+            localStorage.setItem('orbit_x_verified', 'true');
+            localStorage.setItem('orbit_x_handle', handle);
+            updateAuthUI();
+        }
+    }
+});
 
 if (localStorage.getItem('orbit_wallet')) {
     walletAddress = localStorage.getItem('orbit_wallet');
@@ -637,7 +666,8 @@ async function openChat(roomId, roomName, roomColor, ca){
           try {
               input.disabled = true; input.placeholder = "Verifying token balance...";
               
-              const connection = new solanaWeb3.Connection("https://mainnet.helius-rpc.com/?api-key=fa7e6515-19de-45de-a7d1-35a64a0d9a1a");
+              // ⚑ USING THE GLOBAL HELIUS RPC HERE
+              const connection = new solanaWeb3.Connection(HELIUS_RPC);
               const pubKey = new solanaWeb3.PublicKey(walletAddress);
               const mint = new solanaWeb3.PublicKey(ca);
               
@@ -769,7 +799,7 @@ createBtn.onclick = async () => {
 async function initApp() {
     if(!W) resize();
     
-    // ⚑ 1. GENERATE EPIC DUMMY PLANETS FOR LOADING BLUR
+    // 1. GENERATE EPIC DUMMY PLANETS FOR LOADING BLUR
     const temp = [
         { id: 't1', name: '', tag: '', color: '#ff7a3d', emoji: '🪐', members: 5000 },
         { id: 't2', name: '', tag: '', color: '#b45cff', emoji: '🌍', members: 2000 },
@@ -783,14 +813,14 @@ async function initApp() {
     want.dist = defDist();
     cam.dist = defDist() * 1.5; 
     
-    // ⚑ 2. FETCH REAL DATA
+    // 2. FETCH REAL DATA
     await syncAll();
     
-    // ⚑ 3. REBUILD WITH REAL DATA
+    // 3. REBUILD WITH REAL DATA
     layout();
     buildDock();
     
-    // ⚑ 4. EPIC REVEAL
+    // 4. EPIC REVEAL
     document.body.classList.remove('booting');
 }
 
