@@ -218,10 +218,20 @@ const HY={};let ALL=[],byId={};
 function hyd(d){
   if(HY[d.id])return HY[d.id];
   const c=Object.assign({},d);
+  
+  // Si hay logo_url (de DexScreener), lo usamos. Si no, creamos un SVG con las iniciales.
   c.src = d.logo_url || 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${d.color||'#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="40" fill="#fff">${esc(d.emoji||initials(d.name))}</text></svg>`);
-  c.img=new Image();
-  c.img.crossOrigin = "Anonymous";
-  c.img.src=c.src;
+  
+  c.img = new Image();
+  // ⚑ ELIMINADO: c.img.crossOrigin = "Anonymous"; 
+  // Al quitarlo, el navegador dibuja la imagen sin bloquearla por CORS.
+  
+  c.img.onload = () => {
+      // Forzamos un pulso visual sutil cuando la imagen termina de cargar
+      if (c.pulseAt < 0) c.pulseAt = RT;
+  };
+  
+  c.img.src = c.src;
   
   c.born=RT+.3;c.pulseAt=-99;c.pos=[0,0,0];c.pj={x:0,y:0,z:1,s:1};c.off=undefined;c.lane=null;
   HY[d.id]=c;return c;
