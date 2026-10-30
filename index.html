@@ -98,24 +98,23 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 
 <script>
 // ═══════════════════════════════════════════════════════
-// 0. SETUP KEYS & AUTH
+// 0. SETUP KEYS & AUTH (MSN Architecture)
 // ═══════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://lmakgwdrwdhjofgyovkj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_50c1y3L6RfgVDqZPETvUtA_yZQt5our';
 const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=fa7e6515-19de-45de-a7d1-35a64a0d9a1a";
 
-// ⚑ Capturador de errores global para ver si algo falla en el fondo
-window.onerror = function(msg, url, line, col, error) {
-    console.error("Global JS Error:", msg, "at line", line);
-    // alert("JS Error: " + msg); // Descomenta si quieres ver alertas de errores internos
-};
-
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+// ⚑ SEPARATE CLIENT FOR OAUTH (Exactly like MSN's x-auth.js)
+const authClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
         flowType: 'pkce',
-        detectSessionInUrl: true
+        detectSessionInUrl: true,
+        persistSession: true
     }
 });
+
+// ⚑ MAIN CLIENT FOR DB (No auth tracking needed here)
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let myUsername = localStorage.getItem('orbit_user') || 'Anon';
 let walletAddress = null;
@@ -143,22 +142,43 @@ function updateAuthUI() {
     }
 }
 
-// ⚑ PHANTOM FIX: Detección mejorada y feedback claro
+// ⚑ UTILS FROM MSN (Timeout wrapper)
+function _withTimeout(p, ms, label) {
+    return Promise.race([
+        p,
+        new Promise(function (_, rej) {
+            setTimeout(function () {
+                rej(new Error((label || 'Request') + ' timed out'));
+            }, ms);
+        })
+    ]);
+}
+
+// ⚑ PHANTOM LOGIC (Exactly like MSN's script.js)
 phantomBtn.onclick = async () => {
-    console.log("Phantom button clicked");
-    
-    // Detección recomendada oficialmente por Phantom
-    const provider = window.phantom?.solana || window.solana;
-    
-    if (!provider || !provider.isPhantom) {
-        alert("Phantom wallet not found! Please install the extension and refresh the page.");
-        console.error("Phantom provider not found. Window object:", window.phantom, window.solana);
+    let provider = null;
+    if ('phantom' in window) {
+        provider = window.phantom?.solana;
+    }
+    if (!provider && window.solana && window.solana.isPhantom) {
+        provider = window.solana;
+    }
+
+    if (!provider) {
+        alert("Phantom wallet not found! Please install the extension and refresh.");
         return;
     }
-    
+
     try {
         phantomBtn.textContent = "CONNECTING...";
-        const resp = await provider.connect();
+        
+        // Wrapping with timeout to prevent infinite hang
+        const resp = await _withTimeout(
+            provider.connect({ onlyIfTrusted: false }), 
+            60000, 
+            'Wallet connect'
+        );
+        
         walletAddress = resp.publicKey.toString();
         localStorage.setItem('orbit_wallet', walletAddress);
         updateAuthUI();
@@ -168,15 +188,14 @@ phantomBtn.onclick = async () => {
             localStorage.setItem('orbit_user', myUsername);
         }
     } catch (err) { 
-        console.error("Phantom Connection Error:", err);
+        console.error("Phantom Error:", err);
         alert("Connection failed: " + (err.message || "User rejected"));
         phantomBtn.textContent = "CONNECT PHANTOM";
     }
 };
 
-// ⚑ X FIX: Debugging extremo
+// ⚑ X OAUTH LOGIC (Exactly like MSN's x-auth.js)
 xBtn.onclick = async () => {
-    console.log("X button clicked");
     if (!walletAddress) { alert("Connect Phantom first!"); return; }
     if (isXVerified) return;
     
@@ -184,8 +203,11 @@ xBtn.onclick = async () => {
     xBtn.disabled = true;
     
     try {
-        console.log("Initiating Supabase OAuth flow...");
-        const { data, error } = await sb.auth.signInWithOAuth({
+        // Mark session for pending OAuth
+        sessionStorage.setItem('orbit_x_oauth_pending', JSON.stringify({ started: Date.now() }));
+        
+        // Use authClient for OAuth flow
+        const { error } = await authClient.auth.signInWithOAuth({
             provider: 'x',
             options: { 
                 redirectTo: window.location.origin + window.location.pathname,
@@ -194,26 +216,18 @@ xBtn.onclick = async () => {
         });
         
         if (error) throw error;
-        console.log("OAuth data:", data); // Si no hay redirección, veremos data aquí
         
     } catch (err) {
         console.error("X Auth Error:", err);
-        alert("Auth Error: " + (err.message || "Unknown error") + "\n\nVerifica que las Consumer Keys de X estén en Supabase.");
+        alert("Auth Error: " + err.message);
         xBtn.textContent = "VERIFY X";
         xBtn.disabled = false;
+        sessionStorage.removeItem('orbit_x_oauth_pending');
     }
-
-    // Safety timeout
-    setTimeout(() => {
-        if (!isXVerified && xBtn.disabled) {
-            xBtn.textContent = "VERIFY X";
-            xBtn.disabled = false;
-        }
-    }, 15000);
 };
 
-// Listen for X Auth Redirect Callback
-sb.auth.onAuthStateChange(async (event, session) => {
+// ⚑ LISTEN FOR AUTH STATE (Exactly like MSN's x-auth.js)
+authClient.auth.onAuthStateChange(async (event, session) => {
     if (session && session.user) {
         const handle = session.user.user_metadata?.preferred_username || session.user.user_metadata?.user_name || '';
         if (handle) {
@@ -222,19 +236,29 @@ sb.auth.onAuthStateChange(async (event, session) => {
             localStorage.setItem('orbit_x_verified', 'true');
             localStorage.setItem('orbit_x_handle', handle);
             updateAuthUI();
+            sessionStorage.removeItem('orbit_x_oauth_pending');
         }
     }
 });
 
+// Auto-reconnect Phantom on load
 if (localStorage.getItem('orbit_wallet')) {
     walletAddress = localStorage.getItem('orbit_wallet');
-    const p = window.phantom?.solana || window.solana;
-    if (p) p.connect({ onlyIfTrusted: true }).catch(()=>{});
+    updateAuthUI();
+    
+    // Attempt silent reconnect
+    let provider = null;
+    if ('phantom' in window) provider = window.phantom?.solana;
+    if (!provider && window.solana && window.solana.isPhantom) provider = window.solana;
+    
+    if (provider) {
+        provider.connect({ onlyIfTrusted: true }).catch(()=>{});
+    }
 }
 updateAuthUI();
 
 // ═══════════════════════════════════════════════════════
-// 1. ORBIT 3D ENGINE
+// 1. ORBIT 3D ENGINE (Your original code)
 // ═══════════════════════════════════════════════════════
 const TAU=Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -258,11 +282,7 @@ function hyd(d){
 }
 
 async function syncAll(){
-  const { data: rooms, error } = await sb.from('orbit_communities').select('*').neq('id', '00000000-0000-0000-0000-000000000000');
-  if (error) {
-      console.error("Supabase fetch error:", error);
-      throw error;
-  }
+  const { data: rooms } = await sb.from('orbit_communities').select('*').neq('id', '00000000-0000-0000-0000-000000000000');
   ALL = (rooms || []).map(r => hyd({ id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji, members: 1, ca: r.ca }));
   byId={};ALL.forEach(c=>byId[c.id]=c);
 }
@@ -688,7 +708,7 @@ async function openChat(roomId, roomName, roomColor, ca){
         }
     }).subscribe();
 
-  const { data, error } = await sb.from('orbit_messages').select('*').eq('community_id', roomId).order('created_at', {ascending:true}).limit(100);
+  const { data } = await sb.from('orbit_messages').select('*').eq('community_id', roomId).order('created_at', {ascending:true}).limit(100);
   feed.innerHTML = '';
   if(data && data.length) {
       data.forEach(m => {
