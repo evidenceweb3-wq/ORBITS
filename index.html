@@ -104,7 +104,12 @@ const SUPABASE_URL = 'https://lmakgwdrwdhjofgyovkj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_50c1y3L6RfgVDqZPETvUtA_yZQt5our';
 const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=fa7e6515-19de-45de-a7d1-35a64a0d9a1a";
 
-// ⚑ FIX: Added PKCE flow for OAuth redirects to work safely
+// ⚑ Capturador de errores global para ver si algo falla en el fondo
+window.onerror = function(msg, url, line, col, error) {
+    console.error("Global JS Error:", msg, "at line", line);
+    // alert("JS Error: " + msg); // Descomenta si quieres ver alertas de errores internos
+};
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
         flowType: 'pkce',
@@ -138,47 +143,62 @@ function updateAuthUI() {
     }
 }
 
+// ⚑ PHANTOM FIX: Detección mejorada y feedback claro
 phantomBtn.onclick = async () => {
-    if (!window.solana || !window.solana.isPhantom) {
-        alert("Phantom wallet not found! Please install the extension.");
+    console.log("Phantom button clicked");
+    
+    // Detección recomendada oficialmente por Phantom
+    const provider = window.phantom?.solana || window.solana;
+    
+    if (!provider || !provider.isPhantom) {
+        alert("Phantom wallet not found! Please install the extension and refresh the page.");
+        console.error("Phantom provider not found. Window object:", window.phantom, window.solana);
         return;
     }
+    
     try {
-        const resp = await window.solana.connect();
+        phantomBtn.textContent = "CONNECTING...";
+        const resp = await provider.connect();
         walletAddress = resp.publicKey.toString();
         localStorage.setItem('orbit_wallet', walletAddress);
         updateAuthUI();
+        
         if(myUsername === 'Anon') {
             myUsername = prompt("Wallet connected! Enter your username:") || "Anon" + Math.floor(Math.random()*1000);
             localStorage.setItem('orbit_user', myUsername);
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+        console.error("Phantom Connection Error:", err);
+        alert("Connection failed: " + (err.message || "User rejected"));
+        phantomBtn.textContent = "CONNECT PHANTOM";
+    }
 };
 
-// ⚑ FIX: Robust X OAUTH LOGIC (Forced to 'x' and added debugging)
+// ⚑ X FIX: Debugging extremo
 xBtn.onclick = async () => {
+    console.log("X button clicked");
     if (!walletAddress) { alert("Connect Phantom first!"); return; }
     if (isXVerified) return;
-    
-    // Debugging alert
-    alert("Starting X Auth... Check the browser console (F12) if nothing happens after this.");
     
     xBtn.textContent = "AUTHENTICATING...";
     xBtn.disabled = true;
     
     try {
+        console.log("Initiating Supabase OAuth flow...");
         const { data, error } = await sb.auth.signInWithOAuth({
-            provider: 'x', // ⚑ Changed to 'x' for OAuth 2.0
+            provider: 'x',
             options: { 
-                redirectTo: window.location.origin + window.location.pathname // More stable than href
+                redirectTo: window.location.origin + window.location.pathname,
+                scopes: 'users.read tweet.read'
             }
         });
         
         if (error) throw error;
+        console.log("OAuth data:", data); // Si no hay redirección, veremos data aquí
         
     } catch (err) {
         console.error("X Auth Error:", err);
-        alert("Auth Error: " + err.message + "\n\nMake sure your Supabase URL Configuration allows this site.");
+        alert("Auth Error: " + (err.message || "Unknown error") + "\n\nVerifica que las Consumer Keys de X estén en Supabase.");
         xBtn.textContent = "VERIFY X";
         xBtn.disabled = false;
     }
@@ -208,7 +228,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
 
 if (localStorage.getItem('orbit_wallet')) {
     walletAddress = localStorage.getItem('orbit_wallet');
-    window.solana.connect({ onlyIfTrusted: true }).catch(()=>{});
+    const p = window.phantom?.solana || window.solana;
+    if (p) p.connect({ onlyIfTrusted: true }).catch(()=>{});
 }
 updateAuthUI();
 
@@ -237,7 +258,11 @@ function hyd(d){
 }
 
 async function syncAll(){
-  const { data: rooms } = await sb.from('orbit_communities').select('*').neq('id', '00000000-0000-0000-0000-000000000000');
+  const { data: rooms, error } = await sb.from('orbit_communities').select('*').neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) {
+      console.error("Supabase fetch error:", error);
+      throw error;
+  }
   ALL = (rooms || []).map(r => hyd({ id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji, members: 1, ca: r.ca }));
   byId={};ALL.forEach(c=>byId[c.id]=c);
 }
@@ -663,7 +688,7 @@ async function openChat(roomId, roomName, roomColor, ca){
         }
     }).subscribe();
 
-  const { data } = await sb.from('orbit_messages').select('*').eq('community_id', roomId).order('created_at', {ascending:true}).limit(100);
+  const { data, error } = await sb.from('orbit_messages').select('*').eq('community_id', roomId).order('created_at', {ascending:true}).limit(100);
   feed.innerHTML = '';
   if(data && data.length) {
       data.forEach(m => {
@@ -833,14 +858,14 @@ async function initApp() {
     want.dist = defDist();
     cam.dist = defDist() * 1.5; 
     
-    // 2. FETCH REAL DATA (with safety net so dummy planets don't stick if network fails)
+    // 2. FETCH REAL DATA
     try {
         await syncAll();
     } catch(e) {
         console.warn("Could not fetch communities from Supabase:", e);
     }
     
-    // 3. REBUILD WITH REAL DATA (if loaded) OR KEEP DUMMIES
+    // 3. REBUILD WITH REAL DATA
     layout();
     buildDock();
     
