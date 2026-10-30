@@ -155,30 +155,35 @@ phantomBtn.onclick = async () => {
     } catch (err) { console.error(err); }
 };
 
-// ⚑ FIX: Robust X OAUTH LOGIC with try/catch and Timeout
+// ⚑ FIX: Robust X OAUTH LOGIC (Forced to 'x' and added debugging)
 xBtn.onclick = async () => {
     if (!walletAddress) { alert("Connect Phantom first!"); return; }
     if (isXVerified) return;
+    
+    // Debugging alert
+    alert("Starting X Auth... Check the browser console (F12) if nothing happens after this.");
     
     xBtn.textContent = "AUTHENTICATING...";
     xBtn.disabled = true;
     
     try {
         const { data, error } = await sb.auth.signInWithOAuth({
-            provider: 'twitter', // Note: If this fails, change to 'x'
-            options: { redirectTo: window.location.href }
+            provider: 'x', // ⚑ Changed to 'x' for OAuth 2.0
+            options: { 
+                redirectTo: window.location.origin + window.location.pathname // More stable than href
+            }
         });
         
         if (error) throw error;
         
     } catch (err) {
         console.error("X Auth Error:", err);
-        alert("Auth Error: " + err.message);
+        alert("Auth Error: " + err.message + "\n\nMake sure your Supabase URL Configuration allows this site.");
         xBtn.textContent = "VERIFY X";
         xBtn.disabled = false;
     }
 
-    // Safety timeout in case the user closes the popup
+    // Safety timeout
     setTimeout(() => {
         if (!isXVerified && xBtn.disabled) {
             xBtn.textContent = "VERIFY X";
