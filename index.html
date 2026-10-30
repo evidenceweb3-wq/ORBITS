@@ -27,6 +27,43 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 .btn{background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:6px 11px;font:600 12px system-ui;backdrop-filter:blur(8px);cursor:pointer;transition:all .2s}
 .btn:hover{border-color:#ffd27a;color:#ffd27a}
 .btn.connected{border-color:#22c55e;color:#22c55e;box-shadow:0 0 10px rgba(34,197,94,0.3)}
+
+/* ═══ ONLINE USERS BADGE (TOP CENTER) ═══ */
+.online-badge {
+    position: absolute;
+    left: 50%;
+    top: calc(18px + env(safe-area-inset-top));
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(14, 17, 38, 0.85);
+    border: 1px solid var(--c);
+    padding: 6px 16px;
+    border-radius: 999px;
+    font: 800 13px 'Share Tech Mono', system-ui, monospace;
+    letter-spacing: 0.1em;
+    color: var(--c);
+    box-shadow: 0 0 15px rgba(255, 179, 71, 0.2), inset 0 0 10px rgba(255, 179, 71, 0.1);
+    pointer-events: auto;
+    backdrop-filter: blur(10px);
+    z-index: 10;
+}
+.online-badge .dot {
+    width: 8px; height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e;
+    animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(0.6); opacity: 0.5; }
+}
+@media (max-width: 500px) {
+    .online-badge { top: calc(70px + env(safe-area-inset-top)); }
+}
+
 .dock{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:4;scrollbar-width:none;transition:transform .35s,opacity 1.5s ease}
 .dock::-webkit-scrollbar{display:none}
 .dock.hide{transform:translateY(120%);opacity:0;pointer-events:none}
@@ -35,7 +72,7 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 .chip img{width:26px;height:26px;border-radius:50%;display:block;object-fit:cover}
 .chip.core,.chip.add{padding-left:12px;color:#ffd27a;border-color:rgba(255,210,122,.45)}
 
-/* ═══ CHAT SHEET (MORE SPACE & THEMED SCROLLBAR) ═══ */
+/* ═══ CHAT SHEET ═══ */
 .sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;width:100%;max-width:600px;height:75vh;display:flex;flex-direction:column;background:rgba(9,11,24,.95);backdrop-filter:blur(14px);border-radius:22px 22px 0 0;border:1px solid rgba(255,255,255,.1);border-bottom:0;border-top:2px solid var(--c);box-shadow:0 -10px 40px rgba(0,0,0,.5),0 -2px 30px color-mix(in srgb,var(--c) 35%,transparent);transform:translateY(106%);transition:transform .38s cubic-bezier(.2,.8,.2,1);z-index:6}
 .sheet.open{transform:none}
 .grab{width:38px;height:4px;border-radius:4px;background:rgba(255,255,255,.2);margin:8px auto 2px;flex:none}
@@ -47,7 +84,6 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 .x{background:none;border:0;color:var(--mut);font-size:22px;cursor:pointer;padding:0 0 0 4px;transition:color .2s}
 .x:hover{color:#ff5c7c}
 
-/* DELETE BUTTON */
 .del-btn{background:rgba(239, 68, 68, 0.1);border:1px solid rgba(239, 68, 68, 0.4);color:#ef4444;font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px;margin-right:4px;transition:all .2s}
 .del-btn:hover{background:rgba(239, 68, 68, 0.3);color:#fff;box-shadow:0 0 10px rgba(239, 68, 68, 0.5)}
 
@@ -57,7 +93,6 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 .compose input:disabled{opacity:0.5;cursor:not-allowed}
 .compose button{background:var(--c);border:0;border-radius:12px;color:#0a0b16;font:800 13px system-ui;padding:0 20px;cursor:pointer}
 
-/* FEED WITH THEMED SCROLLBAR */
 .feed{flex:1;overflow-y:auto;padding:10px 16px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--c) transparent}
 .feed::-webkit-scrollbar{width:6px}
 .feed::-webkit-scrollbar-track{background:transparent}
@@ -84,7 +119,6 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 .modal-box button.primary:hover{filter:brightness(1.1);box-shadow:0 0 15px rgba(255,210,122,.4)}
 .modal-box button:disabled{opacity:.5;cursor:not-allowed}
 
-/* ═══ TOAST NOTIFICATIONS ═══ */
 #toast-container{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .toast{background:rgba(20,23,48,.95);border:1px solid var(--c);color:#fff;padding:10px 20px;border-radius:8px;font:600 14px system-ui;box-shadow:0 4px 12px rgba(0,0,0,.5), 0 0 15px color-mix(in srgb, var(--c) 40%, transparent);animation:toastIn .3s ease, toastOut .3s ease 2.7s forwards}
 @keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
@@ -97,6 +131,13 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 <canvas id="c"></canvas>
 <div class="top">
   <div class="brand"><b>ORBITS</b><small id="hint">Chatrooms for holders. Just the CA.</small></div>
+  
+  <!-- ⚑ ONLINE USERS BADGE -->
+  <div class="online-badge">
+      <span class="dot"></span>
+      <span id="online-users-count">0</span> ONLINE
+  </div>
+
   <div class="tools">
     <button class="btn" id="phantomBtn">CONNECT PHANTOM</button>
   </div>
@@ -192,6 +233,15 @@ phantomBtn.onclick = async () => {
         localStorage.setItem('orbit_wallet', walletAddress);
         updateAuthUI();
         showToast("Wallet Connected");
+        
+        // Update presence with new wallet if connected
+        if (presenceChannel) {
+            presenceChannel.track({
+                online_at: new Date().toISOString(),
+                wallet: walletAddress
+            });
+        }
+
         if(myUsername === 'Anon') {
             myUsername = prompt("Wallet connected! Enter your username:") || "Anon" + Math.floor(Math.random()*1000);
             localStorage.setItem('orbit_user', myUsername);
@@ -213,6 +263,37 @@ if (localStorage.getItem('orbit_wallet')) {
     if (provider) provider.connect({ onlyIfTrusted: true }).catch(()=>{});
 }
 updateAuthUI();
+
+// ═══════════════════════════════════════════════════════
+// 0.1 ONLINE PRESENCE (SUPABASE REALTIME)
+// ═══════════════════════════════════════════════════════
+let presenceChannel = null;
+
+function initPresence() {
+    // Unique ID for this session (keeps users distinct even if they share a wallet)
+    const clientId = localStorage.getItem('orbit_client_id') || 'c_' + Math.random().toString(36).slice(2);
+    localStorage.setItem('orbit_client_id', clientId);
+
+    presenceChannel = sb.channel('orbit-online-presence', {
+        config: { presence: { key: clientId } }
+    });
+
+    presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+            const state = presenceChannel.presenceState();
+            const count = Object.keys(state).length;
+            const countEl = document.getElementById('online-users-count');
+            if (countEl) countEl.textContent = count;
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await presenceChannel.track({
+                    online_at: new Date().toISOString(),
+                    wallet: walletAddress || 'guest'
+                });
+            }
+        });
+}
 
 // ═══════════════════════════════════════════════════════
 // 1. ORBIT 3D ENGINE
@@ -443,13 +524,11 @@ function drawWaves(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
 }
 
-// ⚑ EPIC STAR (SMALLER GLOW, ORGANIC RAYS)
 function drawStar(p,t){
   const R=Math.max(60*p.s,24); 
   const act = (selId === 'core' || hoverId === 'core');
-  const pulse = act ? 1 + Math.sin(t * 5) * 0.04 : 1; // Vital pulse
+  const pulse = act ? 1 + Math.sin(t * 5) * 0.04 : 1; 
 
-  // 1. TIGHT INTENSE GLOW
   const glowRadius = (act ? R * 4.5 : R * 3.2) * pulse;
   const glowAlpha = act ? 0.95 : 0.6;
   
@@ -463,33 +542,27 @@ function drawStar(p,t){
 
   ctx.globalCompositeOperation = 'source-over';
 
-  // 2. SHARP ORGANIC RAYS
   ctx.save();ctx.translate(p.x,p.y);
   for(let layer=0;layer<2;layer++){
     ctx.save();
-    // Rotate faster and with opposite directions for a chaotic organic feel
     ctx.rotate((layer?-1:1) * t * (act ? 0.2 : 0.08));
-    
-    const n = layer ? 12 : 16; // More, thinner rays
+    const n = layer ? 12 : 16; 
     
     for(let i=0;i<n;i++){
       ctx.rotate(TAU/n);
-      
-      // Shorter, dynamic ray lengths
       const rayBase = act ? (layer ? 1.8 : 1.4) : (layer ? 1.3 : 1.0);
       const L = R * (rayBase + 0.15 * Math.sin(t * 3.0 + i * 2.5));
       
       const gg=ctx.createLinearGradient(0,0,L,0);
       const rayAlpha = act ? 0.85 : 0.35;
       
-      // Sharp laser-like gradient
       gg.addColorStop(0, layer ? `rgba(255,200,100,${rayAlpha})` : `rgba(255,255,220,${rayAlpha})`);
       gg.addColorStop(0.25, layer ? `rgba(255,140,40,${rayAlpha*0.6})` : `rgba(255,200,100,${rayAlpha*0.6})`);
       gg.addColorStop(1,'rgba(255,100,30,0)');
       
       ctx.fillStyle=gg;
       ctx.beginPath();
-      const thickness = R * (layer ? 0.04 : 0.07); // Thinner base
+      const thickness = R * (layer ? 0.04 : 0.07); 
       ctx.moveTo(0,-thickness);
       ctx.lineTo(L,0);
       ctx.lineTo(0,thickness);
@@ -499,21 +572,18 @@ function drawStar(p,t){
   }
   ctx.restore();
 
-  // 3. CORE BODY
   g=ctx.createRadialGradient(p.x-R*.15,p.y-R*.15,R*.05,p.x,p.y,R * pulse);
   g.addColorStop(0,'#ffffff');
   g.addColorStop(.4, act ? '#fff0b0' : '#ffd36b');
   g.addColorStop(1, act ? '#ff8a2a' : '#e6731b');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,R * pulse,0,7);ctx.fill();
 
-  // 4. CORE HIGHLIGHT
   const q=R*.4*pulse;
   ctx.fillStyle='rgba(255,255,255,0.95)';
   ctx.beginPath();
   ctx.moveTo(p.x,p.y-q);ctx.quadraticCurveTo(p.x,p.y,p.x+q,p.y);ctx.quadraticCurveTo(p.x,p.y,p.x,p.y+q);
   ctx.quadraticCurveTo(p.x,p.y,p.x-q,p.y);ctx.quadraticCurveTo(p.x,p.y,p.x,p.y-q);ctx.fill();
 
-  // 5. TEXT
   ctx.font=`900 ${clamp(R*.24,10,14)}px system-ui`;ctx.textAlign='center';
   ctx.fillStyle=act?'#fff':'rgba(255,225,170,.9)';
   ctx.shadowColor= act ? 'rgba(255,170,80,1)' : '#000';
@@ -700,7 +770,6 @@ cv.addEventListener('wheel',e=>{e.preventDefault();want.dist=clamp(want.dist*Mat
 const sheet=document.getElementById('sheet'),dock=document.getElementById('dock');
 const modal=document.getElementById('modal'), caInput=document.getElementById('caInput'), createBtn=document.getElementById('createBtn'), modalCloseBtn=document.getElementById('modalCloseBtn');
 
-// ⚑ CONFIRMATION MODAL VARIABLES
 const confirmModal = document.getElementById('confirmModal');
 const confirmMsg = document.getElementById('confirmMessage');
 const confirmYesBtn = document.getElementById('confirmYesBtn');
@@ -721,7 +790,6 @@ function h(tag,props,...kids){
 }
 const rel=(ts)=>{const m=Math.max(1,Math.round((Date.now()-new Date(ts).getTime())/60000));return m<60?m+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d'};
 
-// ⚑ CONFIRMATION MODAL LOGIC
 function showConfirm(msg, onConfirm) {
     confirmMsg.textContent = msg;
     confirmAction = onConfirm;
@@ -970,6 +1038,9 @@ async function refreshCommunities() {
 
 async function initApp() {
     if(!W) resize();
+    
+    // Initialize Presence Tracking
+    initPresence();
     
     const temp = [
         { id: 't1', name: 'Loading...', tag: '', color: '#ff7a3d', emoji: '🪐', members: 5000 },
