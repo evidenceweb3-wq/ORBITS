@@ -23,6 +23,34 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 .top{position:fixed;top:0;left:0;right:0;padding:calc(12px + env(safe-area-inset-top)) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:5;transition:opacity 1.5s ease}
 .brand b{font-size:18px;letter-spacing:.32em;font-weight:800;text-shadow:0 0 18px rgba(255,170,80,.6)}
 .brand small{display:block;color:var(--mut);font-size:11px;margin-top:4px;letter-spacing:.04em;max-width:190px;line-height:1.35}
+
+/* ═══ PROJECT CA CHIP ═══ */
+.project-ca {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 4px 10px;
+    background: rgba(255, 179, 71, 0.08);
+    border: 1px solid var(--c);
+    border-radius: 6px;
+    font: 800 0.7rem 'Share Tech Mono', ui-monospace, monospace;
+    color: var(--c);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    box-shadow: inset 0 0 10px rgba(255, 179, 71, 0.1);
+    pointer-events: auto;
+}
+.project-ca:hover {
+    background: rgba(255, 179, 71, 0.2);
+    box-shadow: 0 0 12px rgba(255, 179, 71, 0.4);
+    color: #fff;
+}
+.project-ca .icon {
+    font-size: 0.8rem;
+}
+
 .tools{display:flex;gap:6px;pointer-events:auto}
 .btn{background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:6px 11px;font:600 12px system-ui;backdrop-filter:blur(8px);cursor:pointer;transition:all .2s}
 .btn:hover{border-color:#ffd27a;color:#ffd27a}
@@ -61,7 +89,7 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
     50% { transform: scale(0.6); opacity: 0.5; }
 }
 @media (max-width: 500px) {
-    .online-badge { top: calc(70px + env(safe-area-inset-top)); }
+    .online-badge { top: calc(80px + env(safe-area-inset-top)); }
 }
 
 .dock{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:4;scrollbar-width:none;transition:transform .35s,opacity 1.5s ease}
@@ -130,7 +158,16 @@ body.booting .top,body.booting .dock{opacity:0;pointer-events:none}
 <body class="booting">
 <canvas id="c"></canvas>
 <div class="top">
-  <div class="brand"><b>ORBITS</b><small id="hint">Chatrooms for holders. Just the CA.</small></div>
+  <div class="brand">
+      <b>ORBITS</b>
+      <small id="hint">Chatrooms for holders. Just the CA.</small>
+      
+      <!-- ⚑ PROJECT CA PLACEHOLDER -->
+      <div class="project-ca" id="projectCA" title="Project CA coming soon">
+          <span class="icon">📋</span>
+          <span class="text">CA: TBA</span>
+      </div>
+  </div>
   
   <!-- ⚑ ONLINE USERS BADGE -->
   <div class="online-badge">
@@ -201,6 +238,21 @@ function showToast(msg, isError = false) {
     setTimeout(() => el.remove(), 3000);
 }
 
+// ⚑ PROJECT CA COPY LOGIC (Placeholder)
+document.getElementById('projectCA').onclick = function() {
+    const caText = "TBA"; // ⚑ Cambia esto por tu CA real cuando esté listo
+    if (caText === "TBA") {
+        showToast("Project CA will be announced soon! 🚀", false);
+        return;
+    }
+    
+    navigator.clipboard.writeText(caText).then(() => {
+        showToast("Project CA Copied! 📋");
+    }).catch(() => {
+        showToast("Failed to copy", true);
+    });
+};
+
 function updateAuthUI() {
     if (walletAddress) {
         phantomBtn.textContent = walletAddress.slice(0,4) + '...' + walletAddress.slice(-4);
@@ -234,7 +286,6 @@ phantomBtn.onclick = async () => {
         updateAuthUI();
         showToast("Wallet Connected");
         
-        // Update presence with new wallet if connected
         if (presenceChannel) {
             presenceChannel.track({
                 online_at: new Date().toISOString(),
@@ -270,7 +321,6 @@ updateAuthUI();
 let presenceChannel = null;
 
 function initPresence() {
-    // Unique ID for this session (keeps users distinct even if they share a wallet)
     const clientId = localStorage.getItem('orbit_client_id') || 'c_' + Math.random().toString(36).slice(2);
     localStorage.setItem('orbit_client_id', clientId);
 
