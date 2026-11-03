@@ -22,9 +22,6 @@
 html,body{height:100%;overflow:hidden;color:var(--ui);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{background:radial-gradient(120% 90% at 50% 40%,#10122b 0%,#070815 55%,#03040a 100%)}
 
-/* ═══════════════════════════════════════════════════════
-   CANVAS / BOOT
-   ═══════════════════════════════════════════════════════ */
 canvas{
   position:fixed;inset:0;width:100%;height:100%;
   touch-action:none;cursor:grab;display:block;
@@ -36,9 +33,6 @@ body.booting{cursor:wait}
 body.booting canvas{filter:blur(28px) brightness(.5);transform:scale(1.12);pointer-events:none}
 body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-events:none}
 
-/* ═══════════════════════════════════════════════════════
-   TOP BAR
-   ═══════════════════════════════════════════════════════ */
 .top{
   position:fixed;top:0;left:0;right:0;
   padding:calc(12px + env(safe-area-inset-top)) 14px 0;
@@ -129,9 +123,6 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
   .online-badge{top:calc(82px + env(safe-area-inset-top));font-size:11px;padding:5px 12px}
 }
 
-/* ═══════════════════════════════════════════════════════
-   DOCK
-   ═══════════════════════════════════════════════════════ */
 .dock{
   position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;
   overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));
@@ -152,9 +143,6 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
 .chip.core,.chip.add{padding-left:12px;color:#ffd27a;border-color:rgba(255,210,122,.45)}
 .chip.core:hover,.chip.add:hover{background:rgba(255,210,122,.1)}
 
-/* ═══════════════════════════════════════════════════════
-   CHAT SHEET
-   ═══════════════════════════════════════════════════════ */
 .sheet{
   position:fixed;left:0;right:0;bottom:0;margin:0 auto;
   width:100%;max-width:680px;
@@ -175,7 +163,6 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
 
 .grab{width:38px;height:4px;border-radius:4px;background:rgba(255,255,255,.18);margin:8px auto 2px;flex:none}
 
-/* ─── HEADER (now contains stats) ─── */
 .head{
   display:flex;align-items:flex-start;gap:12px;
   padding:8px 16px 14px;flex:none;
@@ -210,7 +197,6 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 
-/* ─── INTEGRATED STATS ROW ─── */
 .head-stats{
   display:flex;align-items:center;gap:16px;
   margin-top:10px;padding-top:10px;
@@ -246,7 +232,6 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
   .hs-l{font-size:8.5px}
 }
 
-/* ─── FEED ─── */
 .feed-wrap{flex:1;position:relative;min-height:0}
 .feed-wrap::after{
   content:'';position:absolute;bottom:0;left:0;right:0;height:36px;
@@ -329,9 +314,6 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
 .compose button:hover{filter:brightness(1.1);box-shadow:0 0 16px rgba(255,179,71,.4)}
 .compose button:disabled{opacity:.4;cursor:not-allowed;filter:none;box-shadow:none}
 
-/* ═══════════════════════════════════════════════════════
-   MODALS
-   ═══════════════════════════════════════════════════════ */
 .modal{
   position:fixed;inset:0;background:rgba(0,0,0,.78);
   backdrop-filter:blur(10px);z-index:20;
@@ -730,21 +712,107 @@ async function renderTokenStats(roomId, ca, container) {
   if (!ca) return;
   const reqId = ++statsReqId;
 
-  // Show cached data instantly (no flicker)
   const cached = statsCache.get(ca);
   container.innerHTML = cached
     ? renderStatsHTML(cached.data)
     : '<div class="hs-loading">Loading market data…</div>';
 
-  // Always fetch fresh
   const data = await getTokenStats(ca, true);
 
-  // Race-safety: stale request, detached container, or different room
   if (reqId !== statsReqId) return;
   if (!container.isConnected) return;
   if (currentRoomId !== roomId) return;
 
   container.innerHTML = renderStatsHTML(data);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6.5 TOKEN BALANCE CHECK (Helius) — fast + cached + non-blocking
+   ═══════════════════════════════════════════════════════════════ */
+const balanceCache = new Map();
+const BALANCE_TTL = 60000;
+
+/**
+ * Low-level Helius JSON-RPC call with AbortController-based timeout.
+ * Throws a descriptive error on HTTP / RPC errors.
+ */
+async function heliusRpc(method, params, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs || 8000);
+  try {
+    const res = await fetch(HELIUS_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      if (res.status === 429) throw new Error('Rate limited');
+      if (res.status === 401 || res.status === 403) throw new Error('Invalid RPC key');
+      throw new Error('RPC HTTP ' + res.status);
+    }
+    const json = await res.json();
+    if (json.error) throw new Error(json.error.message || 'RPC error');
+    return json.result;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error(method + ' timed out');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Returns the UI amount (already divided by 10^decimals) of `mint`
+ * held by `wallet`. Fast path uses Helius DAS `getAssetsByOwner`
+ * (one round trip, no parsing). Falls back to the standard
+ * `getTokenAccountsByOwner` call if DAS is unavailable.
+ */
+async function fetchTokenBalance(wallet, mint) {
+  const key = wallet + ':' + mint;
+  const cached = balanceCache.get(key);
+  if (cached && Date.now() - cached.ts < BALANCE_TTL) return cached.balance;
+
+  let balance = 0;
+  let dasOk = false;
+
+  // ── Fast path: Helius DAS getAssetsByOwner ──
+  try {
+    const result = await heliusRpc('getAssetsByOwner', {
+      ownerAddress: wallet,
+      page: 1,
+      limit: 1000,
+      displayOptions: { showFungible: true }
+    }, 6000);
+
+    const items = result?.items || [];
+    for (const item of items) {
+      if (item.id === mint && item.token_info?.balance) {
+        const decimals = item.token_info.decimals || 0;
+        balance = item.token_info.balance / Math.pow(10, decimals);
+        break;
+      }
+    }
+    dasOk = true;
+  } catch (e) {
+    console.warn('[ORBITS] DAS getAssetsByOwner failed, using fallback:', e.message);
+  }
+
+  // ── Fallback: standard RPC ──
+  if (!dasOk) {
+    const result = await heliusRpc('getTokenAccountsByOwner', [
+      wallet,
+      { mint },
+      { encoding: 'jsonParsed' }
+    ], 12000);
+    const accounts = result?.value || [];
+    accounts.forEach(acc => {
+      balance += acc.account.data.parsed?.info?.tokenAmount?.uiAmount || 0;
+    });
+  }
+
+  balanceCache.set(key, { balance, ts: Date.now() });
+  return balance;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1548,6 +1616,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
   const isGeneral = roomId === GENERAL_ROOM;
   const cObj = ALL.find(c => c.id === roomId);
   const isAdmin = walletAddress === ADMIN_WALLET;
+  const needsVerify = !isGeneral && !!ca;
 
   /* ── Action buttons ── */
   const actions = [];
@@ -1578,11 +1647,9 @@ async function openChat(roomId, roomName, roomColor, ca) {
   }
   actions.push(h('button', { class: 'x', onclick: () => select(null) }, '×'));
 
-  /* ── Stats container (integrated into header) ── */
+  /* ── Stats container ── */
   let statsEl = null;
-  if (!isGeneral && ca) {
-    statsEl = h('div', { class: 'head-stats' });
-  }
+  if (needsVerify) statsEl = h('div', { class: 'head-stats' });
 
   /* ── Header ── */
   const avatarEl = isGeneral
@@ -1603,7 +1670,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
 
   const headEl = h('div', { class: 'head' }, avatarEl, h('div', { class: 't' }, ...textKids));
 
-  /* ── Kick off stats fetch + auto-refresh ── */
+  /* ── Stats fetch ── */
   if (statsEl && ca) {
     renderTokenStats(roomId, ca, statsEl);
     currentStatsTimer = setInterval(() => {
@@ -1627,7 +1694,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
     jumpBtn.classList.toggle('show', !nearBottom);
   });
 
-  /* ── Realtime subscription ── */
+  /* ── Realtime ── */
   currentChannel = sb.channel('room_' + roomId)
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'orbit_messages',
@@ -1643,22 +1710,6 @@ async function openChat(roomId, roomName, roomColor, ca) {
     })
     .subscribe();
 
-  /* ── Load history ── */
-  const { data } = await sb.from('orbit_messages')
-    .select('*')
-    .eq('community_id', roomId)
-    .order('created_at', { ascending: true })
-    .limit(120);
-
-  if (reqId !== chatReqId) return; // user switched rooms mid-fetch
-
-  feed.innerHTML = '';
-  if (data && data.length) {
-    data.forEach(m => feed.append(makeMsgEl(m, m.username === myUsername)));
-  } else {
-    feed.append(h('div', { class: 'loading' }, 'Quiet orbit. Be the first to post.'));
-  }
-
   /* ── Compose ── */
   const input = h('input', {
     placeholder: `Message #${roomName}…`,
@@ -1672,46 +1723,23 @@ async function openChat(roomId, roomName, roomColor, ca) {
 
   const sendBtn = h('button', null, 'Send');
 
-  /* ── Balance gate ── */
-  if (!isGeneral && ca) {
-    if (!walletAddress) {
+  // Retry button for failed balance checks
+  const retryBtn = h('button', {
+    style: 'display:none;background:linear-gradient(135deg,var(--c),#ffd27a);border:0;border-radius:12px;color:#0a0b16;font:800 12px system-ui;padding:0 14px;cursor:pointer;white-space:nowrap;flex-shrink:0;',
+    onclick: () => {
+      retryBtn.style.display = 'none';
       input.disabled = true;
-      input.placeholder = 'Connect Phantom to verify holdings.';
-    } else {
-      input.disabled = true;
-      input.placeholder = 'Verifying token balance…';
-      try {
-        const connection = new solanaWeb3.Connection(HELIUS_RPC);
-        const pubKey = new solanaWeb3.PublicKey(walletAddress);
-        const mint = new solanaWeb3.PublicKey(ca);
-        const accounts = await connection.getParsedTokenAccountsByOwner(pubKey, { mint });
-
-        if (reqId !== chatReqId) return;
-
-        let balance = 0;
-        accounts.value.forEach(acc => {
-          balance += acc.account.data.parsed.info.tokenAmount.uiAmount || 0;
-        });
-        await sb.rpc('orbit_sync_balance', {
-          p_wallet: walletAddress, p_room_id: roomId, p_balance: balance
-        });
-
-        if (reqId !== chatReqId) return;
-
-        if (balance > 0) {
-          input.disabled = false;
-          input.placeholder = `Message #${roomName}…`;
-        } else {
-          input.placeholder = "You don't hold this token.";
-          input.disabled = true;
-        }
-      } catch (e) {
-        if (reqId !== chatReqId) return;
-        console.error(e);
-        input.placeholder = 'Error checking balance.';
-        input.disabled = true;
-      }
+      input.placeholder = 'Retrying…';
+      runBalanceCheck();
     }
+  }, '↻ Retry');
+
+  // Initial disabled state — will be updated after balance check
+  if (needsVerify) {
+    input.disabled = true;
+    input.placeholder = walletAddress
+      ? 'Verifying token balance…'
+      : 'Connect Phantom to verify holdings.';
   }
 
   const send = async () => {
@@ -1738,7 +1766,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
   input.onkeydown = e => { if (e.key === 'Enter') send(); };
   sendBtn.onclick = send;
 
-  /* ── Final render ── */
+  /* ── Render sheet FIRST (non-blocking) ── */
   sheet.innerHTML = '';
   sheet.append(
     h('div', { class: 'grab' }),
@@ -1746,11 +1774,68 @@ async function openChat(roomId, roomName, roomColor, ca) {
     feedWrap,
     h('div', { class: 'compose' },
       h('div', { class: 'compose-wrap' }, input, charCount),
-      sendBtn
+      sendBtn,
+      retryBtn
     )
   );
-
   setTimeout(() => { feed.scrollTop = feed.scrollHeight; }, 60);
+
+  /* ── Load history ── */
+  const { data } = await sb.from('orbit_messages')
+    .select('*')
+    .eq('community_id', roomId)
+    .order('created_at', { ascending: true })
+    .limit(120);
+
+  if (reqId !== chatReqId) return;
+
+  feed.innerHTML = '';
+  if (data && data.length) {
+    data.forEach(m => feed.append(makeMsgEl(m, m.username === myUsername)));
+  } else {
+    feed.append(h('div', { class: 'loading' }, 'Quiet orbit. Be the first to post.'));
+  }
+  feed.scrollTop = feed.scrollHeight;
+
+  /* ── Balance check (async, non-blocking) ── */
+  async function runBalanceCheck() {
+    if (!walletAddress) {
+      input.disabled = true;
+      input.placeholder = 'Connect Phantom to verify holdings.';
+      return;
+    }
+    try {
+      const balance = await fetchTokenBalance(walletAddress, ca);
+      // Guard against user switching rooms / closing sheet
+      if (reqId !== chatReqId) return;
+      if (currentRoomId !== roomId) return;
+      if (!input.isConnected) return;
+
+      if (balance > 0) {
+        input.disabled = false;
+        input.placeholder = `Message #${roomName}…`;
+        // Fire-and-forget backend sync (don't block UI)
+        sb.rpc('orbit_sync_balance', {
+          p_wallet: walletAddress, p_room_id: roomId, p_balance: balance
+        }).catch(err => console.warn('[ORBITS] balance sync failed:', err.message));
+      } else {
+        input.disabled = true;
+        input.placeholder = "You don't hold this token.";
+      }
+    } catch (e) {
+      if (reqId !== chatReqId) return;
+      if (currentRoomId !== roomId) return;
+      if (!input.isConnected) return;
+
+      console.warn('[ORBITS] balance check failed:', e.message);
+      input.disabled = true;
+      const short = e.message.length > 40 ? e.message.slice(0, 40) + '…' : e.message;
+      input.placeholder = 'Balance check failed: ' + short;
+      retryBtn.style.display = '';
+    }
+  }
+
+  if (needsVerify) runBalanceCheck();
 }
 
 /* ═══════════════════════════════════════════════════════════════
