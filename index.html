@@ -80,29 +80,6 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
 }
 .btn.connected:hover{border-color:var(--red);color:var(--red);box-shadow:0 0 12px rgba(239,68,68,.25)}
 
-.sol-ticker{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:5px 12px;border-radius:999px;
-  background:linear-gradient(90deg,rgba(153,69,255,.14),rgba(20,241,149,.14));
-  border:1px solid rgba(153,69,255,.45);
-  font:800 12px var(--font-mono);letter-spacing:.02em;
-  backdrop-filter:blur(10px);
-  cursor:default;white-space:nowrap;
-  transition:box-shadow .3s;
-}
-.sol-ticker:hover{box-shadow:0 0 16px rgba(153,69,255,.35)}
-.sol-ic{
-  font-size:13px;
-  background:linear-gradient(135deg,var(--sol-purple),var(--sol-green));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-}
-.sol-px{color:#fff;font-variant-numeric:tabular-nums;transition:color .3s}
-.sol-px.up{color:var(--green)}
-.sol-px.down{color:var(--red)}
-.sol-ch{font-size:10.5px;font-variant-numeric:tabular-nums}
-.sol-ch.pos{color:var(--sol-green)}
-.sol-ch.neg{color:#ff5c7c}
-
 .online-badge{
   position:fixed;left:50%;transform:translateX(-50%);
   top:calc(16px + env(safe-area-inset-top));
@@ -414,11 +391,6 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
   </div>
 
   <div class="tools">
-    <div class="sol-ticker" id="solTicker" title="Solana price · live">
-      <span class="sol-ic">◎</span>
-      <span class="sol-px" id="solPrice">$--.--</span>
-      <span class="sol-ch" id="solChange">--%</span>
-    </div>
     <button class="btn" id="phantomBtn">CONNECT</button>
   </div>
 </div>
@@ -528,9 +500,11 @@ function showToast(msg, isError = false) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   3. LIVE SOL PRICE TICKER
+   3. LIVE SOL PRICE STATE (feeds the 3D SOL planet)
    ═══════════════════════════════════════════════════════════════ */
-let solPrevPrice = 0;
+let solData = null;
+let solFlashAt = -99;
+let solPrev = 0;
 
 async function fetchSolPrice() {
   try {
@@ -550,28 +524,16 @@ async function fetchSolPrice() {
   return null;
 }
 
-async function updateSolTicker() {
-  const data = await fetchSolPrice();
-  if (!data) return;
-  const priceEl = $('solPrice');
-  const changeEl = $('solChange');
-
-  priceEl.textContent = fmtPrice(data.price);
-  if (solPrevPrice) {
-    priceEl.classList.remove('up', 'down');
-    priceEl.classList.add(data.price >= solPrevPrice ? 'up' : 'down');
-    setTimeout(() => priceEl.classList.remove('up', 'down'), 1200);
-  }
-  solPrevPrice = data.price;
-
-  const sign = data.change >= 0 ? '+' : '';
-  changeEl.textContent = sign + data.change.toFixed(2) + '%';
-  changeEl.classList.toggle('pos', data.change >= 0);
-  changeEl.classList.toggle('neg', data.change < 0);
+async function updateSolPrice() {
+  const d = await fetchSolPrice();
+  if (!d) return;
+  if (solPrev && d.price !== solPrev) solFlashAt = performance.now() / 1000;
+  solPrev = d.price;
+  solData = d;
 }
 
-updateSolTicker();
-setInterval(updateSolTicker, 20000);
+updateSolPrice();
+setInterval(updateSolPrice, 20000);
 
 /* ═══════════════════════════════════════════════════════════════
    4. WALLET
@@ -831,6 +793,317 @@ async function fetchTokenBalance(wallet, mint) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   6.6 SOL SYSTEM — 3D orrery at 45° elevation above main orbits
+   ═══════════════════════════════════════════════════════════════ */
+/*  ↓↓↓ PASTE YOUR LOGO URLS HERE ↓↓↓  */
+const SOL_ICONS = {
+  sol:  '',   // Solana logo (leave '' to draw the mark procedurally)
+  pump: 'https://i.postimg.cc/ry9HG152/pumplogo.png',
+  x:    'https://i.postimg.cc/66hPVrCN/Xlogo.png',
+  dex:  'https://i.postimg.cc/T2csjVn6/Dex-Logo.png'
+};
+/*  ↑↑↑ PASTE YOUR LOGO URLS HERE ↑↑↑  */
+
+const SOL_LINKS = {
+  pump: 'https://pump.fun',
+  x:    'https://x.com',
+  dex:  'https://dexscreener.com'
+};
+
+const SOL_BODIES = [
+  { key: 'pump', color: '#3ddc84', glyph: 'p', ang: -Math.PI / 2,               gcol: '#05230f' },
+  { key: 'x',    color: '#11161f', glyph: 'X', ang: -Math.PI / 2 + TAU / 3,     gcol: '#ffffff' },
+  { key: 'dex',  color: '#3b82f6', glyph: 'D', ang: -Math.PI / 2 + TAU * 2 / 3, gcol: '#ffffff' }
+];
+
+SOL_BODIES.forEach(b => {
+  const url = SOL_ICONS[b.key];
+  if (url) {
+    b.img = new Image();
+    b.img.src = url;
+  }
+});
+
+const solLogoImg = (() => {
+  if (!SOL_ICONS.sol) return null;
+  const i = new Image();
+  i.src = SOL_ICONS.sol;
+  return i;
+})();
+
+const SOL_CFG = {
+  origin: [0, 0, 0],
+  orbitR: 0,
+  iconR: 0,
+  solR: 0,
+  iconSz: 0,
+  active: false
+};
+
+const solState = {
+  wx: 0, wy: 0, wz: 0,
+  px: 0, py: 0, pz: 0, pr: 0,
+  cx: 0, cy: 0, cz: 0, cs: 0,
+  hudX: 0, hudY: 0
+};
+
+function layoutSol() {
+  // 45° elevation from the main orbital plane
+  SOL_CFG.origin[0] = outerR * 0.60;
+  SOL_CFG.origin[1] = outerR * 0.633;
+  SOL_CFG.origin[2] = outerR * 0.20;
+  // SOL is the center body; icons orbit around it
+  SOL_CFG.orbitR   = outerR * 0.30;   // icons' orbital radius
+  SOL_CFG.iconR    = outerR * 0.045;  // unused now, kept for compat
+  SOL_CFG.solR     = outerR * 0.20;   // SOL is big & central
+  SOL_CFG.iconSz   = outerR * 0.032;  // icons slightly smaller
+  SOL_CFG.active   = true;
+}
+
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* three skewed bars — fallback Solana mark */
+function solanaMark(x, y, s, color) {
+  const bw = s * 2, bh = s * 0.40, sp = s * 0.60, sk = s * 0.34;
+  ctx.fillStyle = color;
+  for (let i = -1; i <= 1; i++) {
+    const cy2 = y + i * sp, k = i === 0 ? -sk : sk;
+    ctx.beginPath();
+    ctx.moveTo(x - bw / 2 + k, cy2 - bh / 2);
+    ctx.lineTo(x + bw / 2 + k, cy2 - bh / 2);
+    ctx.lineTo(x + bw / 2 - k, cy2 + bh / 2);
+    ctx.lineTo(x - bw / 2 - k, cy2 + bh / 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawBall(x, y, r, color, img, glyph, glyphColor) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
+
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
+  } else {
+    ctx.fillStyle = color;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    if (glyph) {
+      ctx.fillStyle = glyphColor || '#fff';
+      ctx.font = `900 ${Math.round(r * 1.15)}px system-ui,sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(glyph, x, y + r * 0.06);
+    }
+  }
+
+  const g = ctx.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.05, x, y, r * 1.1);
+  g.addColorStop(0, 'rgba(255,255,255,.32)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0)');
+  g.addColorStop(1, 'rgba(0,0,12,.72)');
+  ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  ctx.restore();
+
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
+  ctx.strokeStyle = 'rgba(255,255,255,.28)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function drawSolPlanet(x, y, r) {
+  ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2.4);
+  glow.addColorStop(0, 'rgba(153,69,255,.50)');
+  glow.addColorStop(0.45, 'rgba(20,241,149,.22)');
+  glow.addColorStop(1, 'rgba(153,69,255,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
+
+  if (solLogoImg && solLogoImg.complete && solLogoImg.naturalWidth > 0) {
+    ctx.drawImage(solLogoImg, x - r, y - r, r * 2, r * 2);
+  } else {
+    const lg = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+    lg.addColorStop(0, '#9945FF');
+    lg.addColorStop(1, '#14F195');
+    ctx.fillStyle = lg;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    solanaMark(x, y, r * 0.52, '#ffffff');
+  }
+
+  const sh = ctx.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.05, x, y, r * 1.1);
+  sh.addColorStop(0, 'rgba(255,255,255,.30)');
+  sh.addColorStop(0.5, 'rgba(255,255,255,0)');
+  sh.addColorStop(1, 'rgba(0,0,12,.62)');
+  ctx.fillStyle = sh;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  ctx.restore();
+
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
+  ctx.strokeStyle = 'rgba(20,241,149,.55)';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+}
+
+function drawSolHUD(cx, cy) {
+  const price = solData ? fmtPrice(solData.price) : '$--.--';
+  const chg = solData ? (solData.change >= 0 ? '+' : '') + solData.change.toFixed(2) + '%' : '--%';
+  const up = solData ? solData.change >= 0 : true;
+
+  const pf = '800 12.5px ui-monospace,"SF Mono",Menlo,monospace';
+  const cf = '700 10.5px ui-monospace,"SF Mono",Menlo,monospace';
+
+  ctx.font = pf; const pw = ctx.measureText(price).width;
+  ctx.font = cf; const cw = ctx.measureText(chg).width;
+
+  const iconW = 13, g1 = 6, g2 = 8;
+  const total = iconW + g1 + pw + g2 + cw;
+  const h = 22, left = cx - total / 2;
+
+  rr(left - 11, cy - h / 2, total + 22, h, h / 2);
+  ctx.fillStyle = 'rgba(9,11,24,.82)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(153,69,255,.5)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  solanaMark(left + iconW / 2, cy, 4.6, '#14F195');
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = pf;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(price, left + iconW + g1, cy + 0.5);
+
+  ctx.font = cf;
+  ctx.fillStyle = up ? '#14F195' : '#ff5c7c';
+  ctx.fillText(chg, left + iconW + g1 + pw + g2, cy + 0.5);
+}
+
+function drawSolSystem(t, list) {
+  if (!SOL_CFG.active || !outerR) return;
+  const ox = SOL_CFG.origin[0], oy = SOL_CFG.origin[1], oz = SOL_CFG.origin[2];
+
+  P(ox, oy, oz);
+  if (PZ < 80) return;
+  solState.cx = PX; solState.cy = PY; solState.cz = PZ; solState.cs = PS;
+
+  // Icons' orbit ring around SOL (tilted circle in XZ plane)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(153,69,255,.55)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([3, 7]);
+  ctx.lineDashOffset = -t * 20;
+  ctx.beginPath();
+  let pen = false;
+  for (let k = 0; k <= 90; k++) {
+    const a = k / 90 * TAU;
+    P(ox + SOL_CFG.orbitR * Math.cos(a),
+      oy + SOL_CFG.orbitR * 0.22 * Math.sin(a),
+      oz + SOL_CFG.orbitR * Math.sin(a));
+    if (PZ < 40) { pen = false; continue; }
+    if (pen) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); pen = true; }
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // SOL is FIXED at the center of the mini-constellation
+  solState.px = solState.cx;
+  solState.py = solState.cy;
+  solState.pz = solState.cz;
+  const flash = clamp(1 - (t - solFlashAt) / 0.9, 0, 1);
+  const hoverSol = (hoverId === 'sol');
+  solState.pr = Math.max(10, SOL_CFG.solR * PS * (1 + flash * 0.10 + (hoverSol ? 0.05 : 0)));
+
+  solState.hudX = solState.px;
+  solState.hudY = solState.py + solState.pr + 30;
+
+  // Icons ORBIT around SOL
+  SOL_BODIES.forEach((b, i) => {
+    const a = b.ang + t * 0.45 + Math.sin(t * 0.7 + i * 2.1) * 0.06;
+    b.wx = ox + SOL_CFG.orbitR * Math.cos(a);
+    b.wy = oy + SOL_CFG.orbitR * 0.22 * Math.sin(a);
+    b.wz = oz + SOL_CFG.orbitR * Math.sin(a);
+    P(b.wx, b.wy, b.wz);
+    b.px = PX; b.py = PY; b.pz = PZ;
+    b.pr = Math.max(4, SOL_CFG.iconSz * PS);
+  });
+
+  // Push SOL into the depth-sorted list (center body)
+  if (solState.pz > 40) {
+    list.push({ z: solState.pz, f: () => {
+      drawSolPlanet(solState.px, solState.py, solState.pr);
+      if (hoverSol) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(solState.px, solState.py, solState.pr * 1.3, 0, TAU);
+        ctx.strokeStyle = '#14F195';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.lineDashOffset = -t * 15;
+        ctx.stroke();
+        ctx.restore();
+      }
+      hits.push({ id: 'sol', x: solState.px, y: solState.py, r: solState.pr * 1.15, z: solState.pz, sol: true });
+    }});
+  }
+
+   // Push orbiting icons into the depth-sorted list
+  SOL_BODIES.forEach(b => {
+    if (b.pz < 40) return;
+    const hovered = (hoverId === b.key);
+    list.push({ z: b.pz, f: () => {
+      drawBall(b.px, b.py, b.pr, b.color, b.img, b.glyph, b.gcol);
+      if (hovered) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(b.px, b.py, b.pr * 1.4, 0, TAU);
+        ctx.strokeStyle = b.color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.lineDashOffset = -t * 15;
+        ctx.stroke();
+        ctx.restore();
+      }
+      hits.push({ id: b.key, x: b.px, y: b.py, r: b.pr * 1.35, z: b.pz, sol: true });
+    }});
+  });
+}
+
+function onSolBodyClick(id) {
+  if (id === 'sol') {
+    solFlashAt = performance.now() / 1000;
+    updateSolPrice();
+    if (solData) {
+      const sign = solData.change >= 0 ? '+' : '';
+      showToast(`◎ SOL ${fmtPrice(solData.price)} ${sign}${solData.change.toFixed(2)}%`);
+    } else {
+      showToast('◎ SOL price loading…');
+    }
+    return;
+  }
+  const url = SOL_LINKS[id];
+  if (url) {
+    const names = { pump: 'pump.fun', x: 'X', dex: 'DexScreener' };
+    showToast(`${names[id] || id} ↗ opening`);
+    window.open(url, '_blank', 'noopener');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    7. ORBIT 3D ENGINE
    ═══════════════════════════════════════════════════════════════ */
 const COLORS = ['#ff7a3d', '#ff4d8d', '#b45cff', '#3aa0ff', '#2fd3c4', '#3ddc84', '#ffd23f', '#ff5b5b'];
@@ -1032,6 +1305,8 @@ function layout() {
   BELTS = [];
   if (LANES.length >= 6) BELTS.push(mkBelt(250 + 3.5 * 92, 16, 8, 900, 1));
   BELTS.push(mkBelt(outerR + 80, 26, 12, 1300, -1));
+
+  layoutSol();
 }
 
 const defDist = () => clamp((outerR + 110) * 2.0, 1250, 7500);
@@ -1487,8 +1762,15 @@ function frame(now) {
     c.pj.x = PX; c.pj.y = PY; c.pj.z = PZ; c.pj.s = PS;
     list.push({ z: PZ, f: () => drawPlanet(c, sp) });
   }
+
+  drawSolSystem(now / 1000, list);
+
   list.sort((a, b) => b.z - a.z);
   for (const o of list) o.f();
+
+  if (SOL_CFG.active && solState.pz > 40) {
+    drawSolHUD(solState.hudX, solState.hudY);
+  }
 
   drawBelts(false, sp.z);
   drawFX(dt);
@@ -1548,7 +1830,11 @@ function up(e) {
     cv.classList.remove('drag');
     if (down && down.moved < 8 && performance.now() - down.t < 500) {
       const h = hitAt(e.clientX, e.clientY);
-      select(h ? h.id : null);
+      if (h && h.sol) {
+        onSolBodyClick(h.id);
+      } else {
+        select(h ? h.id : null);
+      }
     }
     down = null;
   }
