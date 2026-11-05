@@ -1042,13 +1042,14 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
     // Coins orbit their eco body — same visual language as Solana's pump/x/dex orbiters
   {
     const n = eco.coins.length;
-    // Reveal only once the body is (nearly) centered — keeps the ring view clean
-    const reveal = clamp((centerness - 0.42) / 0.28, 0, 1);
+    // Always-visible brightness curve, matching Solana's pump/X/DEX orbiters
+    const extrasAlpha = 0.6 + clamp((centerness - 0.5) / 0.3, 0, 1) * 0.4;
+    const showLabels = centerness > 0.45;
 
-    if (n > 0 && reveal > 0.01) {
+    if (n > 0) {
       const ORB = Rs * (1.4 + 1.1 * centerness) * (1 + Math.min(n, 12) * 0.03);
       const TILT = 0.22;
-      const speed = 0.32;
+      const speed = 0.35;
 
       for (let i = 0; i < n; i++) {
         const coin = eco.coins[i];
@@ -1062,7 +1063,7 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
           body.wz + ORB * Math.sin(a));
         if (PZ < 40) continue;
         const cx = PX, cy = PY, cz = PZ;
-        const cr = Math.max(10, Rs * 0.17) * spawnScale;
+        const cr = Math.max(7, Rs * 0.16) * spawnScale;
 
         if (!coin.img) {
           coin.img = new Image();
@@ -1072,7 +1073,18 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
         const hovering = hoverId === 'coin-' + (coin.address || coin.symbol);
 
         list.push({ z: cz, f: () => {
-          ctx.globalAlpha = reveal;
+          // Halo — makes the coin pop like the Solana orbiters
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const halo = ctx.createRadialGradient(cx, cy, cr * 0.45, cx, cy, cr * 2.1);
+          halo.addColorStop(0, hexA(coinColor, 0.42 * extrasAlpha));
+          halo.addColorStop(0.55, hexA(coinColor, 0.14 * extrasAlpha));
+          halo.addColorStop(1, hexA(coinColor, 0));
+          ctx.fillStyle = halo;
+          ctx.beginPath(); ctx.arc(cx, cy, cr * 2.1, 0, TAU); ctx.fill();
+          ctx.restore();
+
+          ctx.globalAlpha = extrasAlpha;
           drawBall(cx, cy, cr, coinColor, coin.img, coin.symbol ? coin.symbol[0] : '?', '#fff');
 
           if (hovering) {
@@ -1087,14 +1099,18 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
             ctx.restore();
           }
 
-          ctx.font = `700 ${clamp(cr * 0.85, 10, 13)}px system-ui`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'alphabetic';
-          ctx.fillStyle = '#fff';
-          ctx.shadowColor = '#000';
-          ctx.shadowBlur = 6;
-          ctx.fillText(coin.symbol || '?', cx, cy + cr + 15);
-          ctx.shadowBlur = 0;
+          if (showLabels) {
+            const la = clamp((centerness - 0.45) / 0.25, 0, 1);
+            ctx.globalAlpha = extrasAlpha * la;
+            ctx.font = `700 ${clamp(cr * 0.85, 10, 13)}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = '#fff';
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 6;
+            ctx.fillText(coin.symbol || '?', cx, cy + cr + 15);
+            ctx.shadowBlur = 0;
+          }
           ctx.globalAlpha = 1;
 
           hits.push({
@@ -1104,34 +1120,37 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
           });
         }});
       }
-    } else if (n === 0 && reveal > 0.01) {
-      // No coins yet — subtle empty slots, only visible when centered
-      const slots = 6;
-      const ORB = Rs * (1.4 + 1.1 * centerness);
-      const TILT = 0.22;
-      for (let i = 0; i < slots; i++) {
-        const a = i / slots * TAU + t * 0.08;
-        P(body.wx + ORB * Math.cos(a),
-          body.wy + ORB * TILT * Math.sin(a),
-          body.wz + ORB * Math.sin(a));
-        if (PZ < 40) continue;
-        const cx = PX, cy = PY, cz = PZ;
-        list.push({ z: cz, f: () => {
-          ctx.globalAlpha = reveal * 0.7;
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
-          ctx.fillStyle = hexA(eco.color, 0.08);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
-          ctx.strokeStyle = hexA(eco.color, 0.45);
-          ctx.lineWidth = 2;
-          ctx.setLineDash([4, 6]);
-          ctx.stroke();
-          ctx.restore();
-          ctx.globalAlpha = 1;
-        }});
+    } else {
+      // No coins yet — subtle empty slots, only when the body is centered
+      const slotAlpha = clamp((centerness - 0.5) / 0.25, 0, 1);
+      if (slotAlpha > 0.01) {
+        const slots = 6;
+        const ORB = Rs * (1.4 + 1.1 * centerness);
+        const TILT = 0.22;
+        for (let i = 0; i < slots; i++) {
+          const a = i / slots * TAU + t * 0.08;
+          P(body.wx + ORB * Math.cos(a),
+            body.wy + ORB * TILT * Math.sin(a),
+            body.wz + ORB * Math.sin(a));
+          if (PZ < 40) continue;
+          const cx = PX, cy = PY, cz = PZ;
+          list.push({ z: cz, f: () => {
+            ctx.globalAlpha = slotAlpha * 0.7;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
+            ctx.fillStyle = hexA(eco.color, 0.08);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
+            ctx.strokeStyle = hexA(eco.color, 0.45);
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 6]);
+            ctx.stroke();
+            ctx.restore();
+            ctx.globalAlpha = 1;
+          }});
+        }
       }
     }
   }
@@ -1157,15 +1176,41 @@ function drawEcoRing(t) {
   ctx.restore();
 }
 
-function onEcoCoinClick(ecoKey, coin) {
+async function onEcoCoinClick(ecoKey, coin) {
   const eco = getEco(ecoKey);
-  const url = coin.dexscreener ||
-    (coin.address ? `https://dexscreener.com/${eco.chainId}/${coin.address}` : null);
-  if (url) {
-    showToast(`${coin.symbol || '?'} ↗ DexScreener`);
-    window.open(url, '_blank', 'noopener');
-  } else {
-    showToast(`${coin.symbol || '?'} — no address`);
+  if (!eco || !coin) return;
+
+  const addr = String(coin.address || '').toLowerCase();
+  if (!addr) { showToast('This coin has no contract address', true); return; }
+
+  // Already has a holder chat? Just open it.
+  const existing = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
+  if (existing) { select(existing.id); return; }
+
+  if (coin._opening) return;
+  coin._opening = true;
+  showToast(`Opening ${coin.symbol || 'coin'} chat…`);
+
+  try {
+    const { error } = await sb.from('orbit_communities').insert({
+      name: coin.name || coin.symbol || 'Token',
+      tagline: coin.symbol || '',
+      ca: coin.address,
+      logo_url: coin.logo_url || '',
+      color: coin.color || eco.color,
+      emoji: '🪙'
+    });
+    if (error) throw error;
+
+    await refreshCommunities();
+
+    const room = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
+    if (room) select(room.id);
+    else showToast('Chat created — tap the coin again', false);
+  } catch (e) {
+    showToast('Could not open chat: ' + (e.message || 'error'), true);
+  } finally {
+    coin._opening = false;
   }
 }
 
@@ -2120,7 +2165,8 @@ async function openChat(roomId, roomName, roomColor, ca) {
   const isGeneral = roomId === GENERAL_ROOM;
   const cObj = ALL.find(c => c.id === roomId);
   const isAdmin = walletAddress === ADMIN_WALLET;
-  const needsVerify = !isGeneral && !!ca;
+  const isEvmCa = /^0x[a-fA-F0-9]{40}$/.test(String(ca || ''));
+  const needsVerify = !isGeneral && !!ca && !isEvmCa;
 
   const actions = [];
   if (!isGeneral && ca) {
@@ -2318,7 +2364,13 @@ async function openChat(roomId, roomName, roomColor, ca) {
     }
   }
 
-  if (needsVerify) runBalanceCheck();
+  if (needsVerify) {
+    runBalanceCheck();
+  } else if (isEvmCa && walletAddress) {
+    sb.rpc('orbit_sync_balance', {
+      p_wallet: walletAddress, p_room_id: roomId, p_balance: 1
+    }).catch(() => {});
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
