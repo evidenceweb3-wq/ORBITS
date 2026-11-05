@@ -781,7 +781,6 @@ const BODIES = BODY_KEYS.map((key, i) => ({
 }));
 
 const SLOT_ANGLES = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-const SLOT_Y = [0.12, -0.06, 0.16, -0.09];
 
 const ECO_RING = { radius: 0, elevation: 0 };
 let ringRotation = 0;
@@ -871,6 +870,12 @@ function swapCenterTo(targetKey) {
   const target = getBody(targetKey);
   const current = BODIES.find(b => b.isCenter);
   if (!target || !current || target === current) return;
+
+  // Close any open chat sheet — a new center is taking over the stage
+  sheet.classList.remove('open');
+  currentRoomId = null;
+  if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
+  if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
 
   const tempSlot = current.slot;
   current.slot = target.slot;
@@ -1154,7 +1159,7 @@ function drawEcoRing(t) {
 
 /* ═══ Electric glow constellation lines ═══ */
 function drawConstellationLines(t) {
-  const ringBodies = BODIES.filter(b => !b.isCenter);
+  const ringBodies = BODIES.filter(b => !b.isCenter).sort((a, b) => a.slot - b.slot);
   if (ringBodies.length < 2) return;
 
   const pulse = 0.5 + 0.5 * Math.sin(t * 1.5);
@@ -1263,7 +1268,7 @@ function openAddCoin(ecoKey) {
   addCoinDesc.textContent = `Only ${eco.name} contracts accepted (${eco.chainId}).`;
   addCoinDesc.style.color = hexA(eco.color, 0.85);
   addCoinInput.value = '';
-  addCoinInput.placeholder = ecoKey === 'eth' || ecoKey === 'bnb' ? '0x…' : 'Contract address…';
+  addCoinInput.placeholder = ['eth', 'bnb', 'avax', 'rh'].includes(ecoKey) ? '0x…' : 'Contract address…';
   addCoinModal.classList.add('open');
   setTimeout(() => addCoinInput.focus(), 80);
 }
@@ -2346,6 +2351,14 @@ function select(id) {
     const cur = BODIES.find(b => b.isCenter);
     if (cur && cur.key !== id) swapCenterTo(id);
     return;
+  }
+
+   // If a chat planet is selected while an eco is centered, bring Sol back
+  // first so the chat's own planet is visible on stage.
+  // `select('core')` is exempt — the general chat is themed to the center body.
+  if (id && id !== 'core') {
+    const ecoCenter = BODIES.find(b => !b.isSol && b.isCenter);
+    if (ecoCenter) swapCenterTo('sol');
   }
 
   // Empty click OR chat selection. Do NOT touch the eco banner.
