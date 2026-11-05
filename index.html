@@ -668,6 +668,7 @@ function drawSolBody(body, px, py, pz, R, centerness, t, list) {
     }
 
       if (centerness > 0.4) {
+      drawSolHUD(px, py - R - 22);
       const a = clamp((centerness - 0.4) / 0.4, 0, 1);
       const labelSize = clamp(R * (0.16 + 0.04 * centerness), 10, 20);
       ctx.globalAlpha = a;
@@ -887,6 +888,7 @@ function swapCenterTo(targetKey) {
 
   // Recenter the new body — reset any offset left from a previous open chat
   wantCenY = H * 0.5;
+  want.dist = Math.max(600, defDist() * 0.65);
 
   const color = target.isSol ? '#14F195' : getEco(target.key).color;
   triggerSwapFX(color);
@@ -1037,140 +1039,46 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
     hits.push({ id: 'eco-body-' + eco.key, x: px, y: py, r: Rs * 1.2, z: pz, bodyKey: eco.key });
   }});
 
-    // Coins orbit their eco body at all times — mini solar system with per-coin trails
+    // Coins orbit their eco body — same visual language as Solana's pump/x/dex orbiters
   {
-    const extrasAlpha = 0.6 + clamp((centerness - 0.5) / 0.3, 0, 1) * 0.4;
-    const ORB = Rs * (1.4 + 1.1 * centerness);
-    const TILT = 0.22;
     const n = eco.coins.length;
-    if (n > 0) {
-      // Concentric tilted rings — distribute coins across up to 3 tiers
-      const rings = [
-        { rMul: 0.72, tiltMul: 0.70, speed: 0.55, alpha: 0.22, dash: [2, 10] },
-        { rMul: 1.00, tiltMul: 1.00, speed: 0.32, alpha: 0.32, dash: [3, 9]  },
-        { rMul: 1.30, tiltMul: 1.24, speed: 0.18, alpha: 0.22, dash: [2, 10] }
-      ];
-      const ringAssign = [];
-      if (n <= 3) {
-        for (let i = 0; i < n; i++) ringAssign.push(1);          // all middle
-      } else if (n <= 6) {
-        for (let i = 0; i < n; i++) ringAssign.push(i % 2 === 0 ? 0 : 2); // inner / outer
-      } else {
-        for (let i = 0; i < n; i++) ringAssign.push(i % 3);       // 3 rings
-      }
-      const ringCounts = [0, 0, 0];
-      ringAssign.forEach(r => ringCounts[r]++);
+    // Reveal only once the body is (nearly) centered — keeps the ring view clean
+    const reveal = clamp((centerness - 0.42) / 0.28, 0, 1);
 
-      // Draw each active ring
-      for (let ri = 0; ri < 3; ri++) {
-        if (ringCounts[ri] === 0) continue;
-        const ring = rings[ri];
-        const rr = ORB * ring.rMul;
-        const rt = TILT * ring.tiltMul;
-        ctx.save();
-        ctx.globalAlpha = extrasAlpha * ring.alpha;
-        ctx.strokeStyle = hexA(eco.color, 0.8);
-        ctx.lineWidth = 1.2;
-        ctx.setLineDash(ring.dash);
-        ctx.lineDashOffset = -t * 18 * (0.5 + ring.speed);
-        ctx.beginPath();
-        let lanePen = false;
-        for (let k = 0; k <= 96; k++) {
-          const ang = k / 96 * TAU;
-          P(body.wx + rr * Math.cos(ang),
-            body.wy + rr * rt * Math.sin(ang),
-            body.wz + rr * Math.sin(ang));
-          if (PZ < 40) { lanePen = false; continue; }
-          if (lanePen) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); lanePen = true; }
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-      }
+    if (n > 0 && reveal > 0.01) {
+      const ORB = Rs * (1.4 + 1.1 * centerness) * (1 + Math.min(n, 12) * 0.03);
+      const TILT = 0.22;
+      const speed = 0.32;
 
-      // Each coin on its assigned ring — with glow + motion trail
-      const idx = [0, 0, 0];
       for (let i = 0; i < n; i++) {
         const coin = eco.coins[i];
-        const ri = ringAssign[i];
-        const ring = rings[ri];
-        const rr = ORB * ring.rMul;
-        const rt = TILT * ring.tiltMul;
-        const slot = idx[ri]++;
-        const aBase = (slot / ringCounts[ri]) * TAU + t * ring.speed;
+        const a = (i / n) * TAU + t * speed;
 
-        const pulseScale = 1 + Math.sin(t * 2 + i * 1.5) * 0.06;
         const coinAge = RT - (coin.bornAt || 0);
         const spawnScale = coinAge < 0.9 ? easeOutBack(clamp(coinAge / 0.9, 0, 1)) : 1;
 
-        P(body.wx + rr * Math.cos(aBase),
-          body.wy + rr * rt * Math.sin(aBase),
-          body.wz + rr * Math.sin(aBase));
+        P(body.wx + ORB * Math.cos(a),
+          body.wy + ORB * TILT * Math.sin(a),
+          body.wz + ORB * Math.sin(a));
         if (PZ < 40) continue;
         const cx = PX, cy = PY, cz = PZ;
-        const cr = Math.max(10, Rs * 0.16) * pulseScale * spawnScale;
+        const cr = Math.max(10, Rs * 0.17) * spawnScale;
 
         if (!coin.img) {
           coin.img = new Image();
           coin.img.src = coin.logo_url || coinFallbackSvg(coin.symbol, coin.color || eco.color);
         }
-
-        // Freeze orbit params for the trail closure
-        const tWX = body.wx, tWY = body.wy, tWZ = body.wz;
-        const tA = aBase, tR = rr, tTilt = rt, tSpeed = ring.speed;
         const coinColor = coin.color || eco.color;
+        const hovering = hoverId === 'coin-' + (coin.address || coin.symbol);
 
         list.push({ z: cz, f: () => {
-          // Motion trail — smooth arc behind the coin
-          if (spawnScale > 0.25) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.strokeStyle = hexA(coinColor, 0.55);
-            ctx.lineWidth = Math.max(1.5, cr * 0.55);
-            ctx.lineCap = 'round';
-            const steps = 9;
-            const stepArc = 0.035 * (1 + tSpeed * 4);
-            let prevX = null, prevY = null;
-            for (let s = 0; s <= steps; s++) {
-              const ta = tA - s * stepArc;
-              P(tWX + tR * Math.cos(ta),
-                tWY + tR * tTilt * Math.sin(ta),
-                tWZ + tR * Math.sin(ta));
-              if (PZ < 40) { prevX = null; prevY = null; continue; }
-              const x = PX, y = PY;
-              if (prevX !== null) {
-                ctx.globalAlpha = extrasAlpha * 0.5 * (1 - s / steps) * spawnScale;
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                ctx.lineTo(prevX, prevY);
-                ctx.stroke();
-              }
-              prevX = x; prevY = y;
-            }
-            ctx.restore();
-          }
-
-          // Soft colored glow around the coin
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          const glow = ctx.createRadialGradient(cx, cy, cr * 0.4, cx, cy, cr * 2.3);
-          glow.addColorStop(0, hexA(coinColor, 0.35 * spawnScale));
-          glow.addColorStop(1, hexA(coinColor, 0));
-          ctx.fillStyle = glow;
-          ctx.beginPath();
-          ctx.arc(cx, cy, cr * 2.3, 0, TAU);
-          ctx.fill();
-          ctx.restore();
-
-          // Coin ball
-          ctx.globalAlpha = extrasAlpha;
+          ctx.globalAlpha = reveal;
           drawBall(cx, cy, cr, coinColor, coin.img, coin.symbol ? coin.symbol[0] : '?', '#fff');
 
-          // Hover ring
-          if (hoverId === 'coin-' + (coin.address || coin.symbol)) {
+          if (hovering) {
             ctx.save();
             ctx.beginPath();
-            ctx.arc(cx, cy, cr * 1.4, 0, TAU);
+            ctx.arc(cx, cy, cr * 1.45, 0, TAU);
             ctx.strokeStyle = eco.color;
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
@@ -1179,14 +1087,13 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
             ctx.restore();
           }
 
-          // Label
-          ctx.font = `700 12px system-ui`;
+          ctx.font = `700 ${clamp(cr * 0.85, 10, 13)}px system-ui`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
           ctx.fillStyle = '#fff';
           ctx.shadowColor = '#000';
           ctx.shadowBlur = 6;
-          ctx.fillText(coin.symbol || '?', cx, cy + cr + 16);
+          ctx.fillText(coin.symbol || '?', cx, cy + cr + 15);
           ctx.shadowBlur = 0;
           ctx.globalAlpha = 1;
 
@@ -1197,9 +1104,11 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
           });
         }});
       }
-    } else {
-      // No coins yet — keep placeholder slot dots
+    } else if (n === 0 && reveal > 0.01) {
+      // No coins yet — subtle empty slots, only visible when centered
       const slots = 6;
+      const ORB = Rs * (1.4 + 1.1 * centerness);
+      const TILT = 0.22;
       for (let i = 0; i < slots; i++) {
         const a = i / slots * TAU + t * 0.08;
         P(body.wx + ORB * Math.cos(a),
@@ -1208,7 +1117,7 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
         if (PZ < 40) continue;
         const cx = PX, cy = PY, cz = PZ;
         list.push({ z: cz, f: () => {
-          ctx.globalAlpha = extrasAlpha * 0.7;
+          ctx.globalAlpha = reveal * 0.7;
           ctx.save();
           ctx.beginPath();
           ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
@@ -1343,6 +1252,7 @@ async function persistEcoCoin(ecoKey, coin) {
 
 async function addCoinForEco(ecoKey, address) {
   const eco = getEco(ecoKey);
+  if (!eco) return { error: 'Unknown ecosystem' };
   const trimmed = address.trim();
   if (trimmed.length < 10) return { error: 'Invalid address' };
 
@@ -1491,10 +1401,8 @@ function hyd(d) {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${d.color || '#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="40" fill="#fff">${esc(d.emoji || initials(d.name))}</text></svg>`
   );
   c.img = new Image();
-  c.img.onload = () => { if (c.pulseAt < 0) c.pulseAt = RT; };
   c.img.src = c.src;
   c.born = RT + 0.3;
-  c.pulseAt = -99;
   c.pos = [0, 0, 0];
   c.pj = { x: 0, y: 0, z: 1, s: 1 };
   c.off = undefined;
@@ -1594,7 +1502,8 @@ function resize() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   F = Math.min(W, H) * 0.95;
   if (W > H) F = Math.min(F, H * 0.95);
-  wantCenY = selId ? H * 0.25 : H * 0.5;
+  const isEcoSel = selId && ECOSYSTEMS.some(e => e.key === selId);
+  wantCenY = (selId && !isEcoSel) ? H * 0.25 : H * 0.5;
   if (!cenY) cenY = wantCenY;
   buildNebula();
 }
@@ -2459,9 +2368,10 @@ function select(id) {
       color = eco.color;
     }
     openChat(GENERAL_ROOM, label, color);
-  } else {
+   } else {
     const room = ALL.find(c => c.id === id);
     if (room) openChat(room.id, room.name, room.color, room.ca);
+    else select(null);
   }
 }
 
@@ -2581,6 +2491,7 @@ async function refreshCommunities() {
   const oldDist = want.dist;
   const oldYaw = cam.yaw;
   const oldPitch = cam.pitch;
+  const oldCenY = wantCenY;
   try {
     await syncAll();
     try { await syncEcoCoins(); } catch (e2) { console.warn('[ORBITS] eco coin refresh failed:', e2); }
@@ -2588,12 +2499,13 @@ async function refreshCommunities() {
     initBodies();
     buildDock();
     want.dist = oldDist;
+    wantCenY = oldCenY;
     cam.yaw = oldYaw;
     cam.pitch = oldPitch;
   } catch (e) {
     console.warn('Could not refresh communities:', e);
   }
-}                          // ← THIS closing brace was missing
+}
 
 async function initApp() {
   if (!W) resize();
