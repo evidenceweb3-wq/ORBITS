@@ -8,368 +8,138 @@
 <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
 <style>
 :root{
-  --ui:#e9ecff;
-  --mut:#8b91b8;
-  --c:#ffb347;
-  --green:#22c55e;
-  --red:#ef4444;
-  --sol-purple:#9945FF;
-  --sol-green:#14F195;
-  --glass-border:rgba(255,255,255,.08);
+  --ui:#e9ecff;--mut:#8b91b8;--c:#ffb347;--green:#22c55e;--red:#ef4444;
+  --sol-purple:#9945FF;--sol-green:#14F195;--glass-border:rgba(255,255,255,.08);
   --font-mono:'Share Tech Mono',ui-monospace,'SF Mono',monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0}
 html,body{height:100%;overflow:hidden;color:var(--ui);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{background:radial-gradient(120% 90% at 50% 40%,#10122b 0%,#070815 55%,#03040a 100%)}
-
-canvas{
-  position:fixed;inset:0;width:100%;height:100%;
-  touch-action:none;cursor:grab;display:block;
-  transition:filter 2s cubic-bezier(.16,1,.3,1),transform 2s cubic-bezier(.16,1,.3,1);
-}
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;display:block;transition:filter 2s cubic-bezier(.16,1,.3,1),transform 2s cubic-bezier(.16,1,.3,1)}
 canvas.drag{cursor:grabbing}
 canvas.hit{cursor:pointer}
 body.booting{cursor:wait}
 body.booting canvas{filter:blur(28px) brightness(.5);transform:scale(1.12);pointer-events:none}
 body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-events:none}
-
-.top{
-  position:fixed;top:0;left:0;right:0;
-  padding:calc(12px + env(safe-area-inset-top)) 14px 0;
-  display:flex;justify-content:space-between;align-items:flex-start;
-  gap:8px;pointer-events:none;z-index:5;
-  transition:opacity 1.5s ease;
-}
-.brand b{
-  font-size:18px;letter-spacing:.32em;font-weight:800;
-  background:linear-gradient(135deg,#fff 0%,#ffd27a 50%,#ffb347 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  filter:drop-shadow(0 0 14px rgba(255,170,80,.45));
-}
-.brand small{
-  display:block;color:var(--mut);font-size:11px;margin-top:4px;
-  letter-spacing:.04em;max-width:190px;line-height:1.35;
-}
-.project-ca{
-  display:inline-flex;align-items:center;gap:6px;margin-top:6px;
-  padding:4px 10px;background:rgba(255,179,71,.08);
-  border:1px solid rgba(255,179,71,.55);border-radius:6px;
-  font:800 .7rem var(--font-mono);color:var(--c);
-  cursor:pointer;transition:all .2s ease;text-decoration:none;
-  box-shadow:inset 0 0 10px rgba(255,179,71,.08);
-  pointer-events:auto;
-}
+.top{position:fixed;top:0;left:0;right:0;padding:calc(12px + env(safe-area-inset-top)) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:5;transition:opacity 1.5s ease}
+.brand b{font-size:18px;letter-spacing:.32em;font-weight:800;background:linear-gradient(135deg,#fff 0%,#ffd27a 50%,#ffb347 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 14px rgba(255,170,80,.45))}
+.brand small{display:block;color:var(--mut);font-size:11px;margin-top:4px;letter-spacing:.04em;max-width:190px;line-height:1.35}
+.project-ca{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 10px;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.55);border-radius:6px;font:800 .7rem var(--font-mono);color:var(--c);cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 0 10px rgba(255,179,71,.08);pointer-events:auto}
 .project-ca:hover{background:rgba(255,179,71,.2);box-shadow:0 0 12px rgba(255,179,71,.35);color:#fff}
-
 .tools{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;pointer-events:auto}
-@media(max-width:560px){
-  .tools{flex-direction:column;align-items:flex-end;gap:6px}
-  .brand small{display:none}
-  .project-ca{font-size:.62rem;padding:3px 7px}
-}
-.btn{
-  background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);
-  color:var(--ui);border-radius:999px;padding:7px 13px;
-  font:600 12px system-ui;backdrop-filter:blur(10px);
-  cursor:pointer;transition:all .2s;white-space:nowrap;
-}
+@media(max-width:560px){.tools{flex-direction:column;align-items:flex-end;gap:6px}.brand small{display:none}.project-ca{font-size:.62rem;padding:3px 7px}}
+.btn{background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:7px 13px;font:600 12px system-ui;backdrop-filter:blur(10px);cursor:pointer;transition:all .2s;white-space:nowrap}
 .btn:hover{border-color:#ffd27a;color:#ffd27a;box-shadow:0 0 12px rgba(255,210,122,.2)}
-.btn.connected{
-  border-color:var(--green);color:var(--green);
-  box-shadow:0 0 12px rgba(34,197,94,.25);
-}
+.btn.connected{border-color:var(--green);color:var(--green);box-shadow:0 0 12px rgba(34,197,94,.25)}
 .btn.connected:hover{border-color:var(--red);color:var(--red);box-shadow:0 0 12px rgba(239,68,68,.25)}
-
-.online-badge{
-  position:fixed;left:50%;transform:translateX(-50%);
-  top:calc(16px + env(safe-area-inset-top));
-  display:flex;align-items:center;gap:7px;
-  background:rgba(14,17,38,.82);border:1px solid rgba(255,179,71,.55);
-  padding:6px 15px;border-radius:999px;
-  font:800 12px var(--font-mono);letter-spacing:.1em;color:var(--c);
-  box-shadow:0 0 15px rgba(255,179,71,.18),inset 0 0 10px rgba(255,179,71,.08);
-  pointer-events:auto;backdrop-filter:blur(12px);z-index:10;
-}
-.online-badge .dot{
-  width:7px;height:7px;background:var(--green);border-radius:50%;
-  box-shadow:0 0 8px var(--green),0 0 16px var(--green);
-  animation:pulse-dot 2s infinite;
-}
+.online-badge{position:fixed;left:50%;transform:translateX(-50%);top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;gap:7px;background:rgba(14,17,38,.82);border:1px solid rgba(255,179,71,.55);padding:6px 15px;border-radius:999px;font:800 12px var(--font-mono);letter-spacing:.1em;color:var(--c);box-shadow:0 0 15px rgba(255,179,71,.18),inset 0 0 10px rgba(255,179,71,.08);pointer-events:auto;backdrop-filter:blur(12px);z-index:10}
+.online-badge .dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green),0 0 16px var(--green);animation:pulse-dot 2s infinite}
 @keyframes pulse-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.55);opacity:.5}}
-@media(max-width:560px){
-  .online-badge{top:calc(82px + env(safe-area-inset-top));font-size:11px;padding:5px 12px}
-}
-
-.dock{
-  position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;
-  overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));
-  z-index:4;scrollbar-width:none;
-  transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity 1.5s ease;
-}
+@media(max-width:560px){.online-badge{top:calc(82px + env(safe-area-inset-top));font-size:11px;padding:5px 12px}}
+.dock{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:4;scrollbar-width:none;transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity 1.5s ease}
 .dock::-webkit-scrollbar{display:none}
 .dock.hide{transform:translateY(120%);opacity:0;pointer-events:none}
-.chip{
-  flex:none;display:flex;align-items:center;gap:7px;
-  background:rgba(14,17,38,.78);border:1px solid rgba(255,255,255,.14);
-  color:var(--ui);border-radius:999px;padding:5px 12px 5px 5px;
-  font:600 13px system-ui;backdrop-filter:blur(10px);cursor:pointer;
-  transition:all .2s;white-space:nowrap;
-}
+.chip{flex:none;display:flex;align-items:center;gap:7px;background:rgba(14,17,38,.78);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:5px 12px 5px 5px;font:600 13px system-ui;backdrop-filter:blur(10px);cursor:pointer;transition:all .2s;white-space:nowrap}
 .chip:hover{border-color:var(--c);transform:translateY(-1px)}
 .chip img{width:26px;height:26px;border-radius:50%;display:block;object-fit:cover}
 .chip.core,.chip.add{padding-left:12px;color:#ffd27a;border-color:rgba(255,210,122,.45)}
 .chip.core:hover,.chip.add:hover{background:rgba(255,210,122,.1)}
-
-/* ═══ FLOATING CHAT CARD ═══ */
-.sheet{
-  position:fixed;
-  left:50%;
-  bottom:8px;
-  width:calc(100% - 16px);
-  max-width:760px;
-  height:88vh;
-  height:88dvh;
-  display:flex;flex-direction:column;
-  background:linear-gradient(180deg,rgba(9,11,24,.78),rgba(9,11,24,.96));
-  backdrop-filter:blur(28px) saturate(150%);
-  -webkit-backdrop-filter:blur(28px) saturate(150%);
-  border-radius:24px;
-  border:1px solid var(--glass-border);
-  border-top:2px solid var(--c);
-  box-shadow:
-    0 32px 80px rgba(0,0,0,.7),
-    0 8px 24px rgba(0,0,0,.5),
-    0 0 40px color-mix(in srgb,var(--c) 20%,transparent);
-  transform:translate(-50%, calc(100% + 40px));
-  transition:transform .42s cubic-bezier(.2,.8,.2,1),background .3s;
-  z-index:6;
-  will-change:transform;
-}
+.sheet{position:fixed;left:50%;bottom:8px;width:calc(100% - 16px);max-width:760px;height:88vh;height:88dvh;display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(9,11,24,.78),rgba(9,11,24,.96));backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);border-radius:24px;border:1px solid var(--glass-border);border-top:2px solid var(--c);box-shadow:0 32px 80px rgba(0,0,0,.7),0 8px 24px rgba(0,0,0,.5),0 0 40px color-mix(in srgb,var(--c) 20%,transparent);transform:translate(-50%, calc(100% + 40px));transition:transform .42s cubic-bezier(.2,.8,.2,1),background .3s;z-index:6;will-change:transform}
 .sheet.open{transform:translate(-50%, 0)}
-
-/* Desktop: center as floating modal */
-@media (min-width: 700px) {
-  .sheet {
-    top:50%;
-    bottom:auto;
-    height:min(80vh, calc(100vh - 120px));
-    transform:translate(-50%, calc(-50% + 40px)) scale(.97);
-    opacity:0;
-    pointer-events:none;
-    transition:
-      transform .42s cubic-bezier(.2,.8,.2,1),
-      opacity .32s ease,
-      background .3s;
-  }
-  .sheet.open {
-    transform:translate(-50%, -50%) scale(1);
-    opacity:1;
-    pointer-events:auto;
-  }
-}
-
+@media (min-width: 700px){.sheet{top:50%;bottom:auto;height:min(80vh, calc(100vh - 120px));transform:translate(-50%, calc(-50% + 40px)) scale(.97);opacity:0;pointer-events:none;transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .32s ease,background .3s}.sheet.open{transform:translate(-50%, -50%) scale(1);opacity:1;pointer-events:auto}}
 .grab{width:38px;height:4px;border-radius:4px;background:rgba(255,255,255,.18);margin:8px auto 2px;flex:none}
-
-.head{
-  display:flex;align-items:flex-start;gap:12px;
-  padding:8px 16px 14px;flex:none;
-}
-.head img,.head .av{
-  width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;
-  align-self:center;
-  box-shadow:0 0 18px color-mix(in srgb,var(--c) 55%,transparent);
-}
+.head{display:flex;align-items:flex-start;gap:12px;padding:8px 16px 14px;flex:none}
+.head img,.head .av{width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;align-self:center;box-shadow:0 0 18px color-mix(in srgb,var(--c) 55%,transparent)}
 .head .t{flex:1;min-width:0}
 .head-top{display:flex;align-items:center;gap:8px}
-.head-top h2{
-  margin:0;font-size:18px;font-weight:800;letter-spacing:.01em;
-  flex:1;min-width:0;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
+.head-top h2{margin:0;font-size:18px;font-weight:800;letter-spacing:.01em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .head-actions{display:flex;gap:6px;flex:none;align-items:center}
-.head .x{
-  background:none;border:0;color:var(--mut);font-size:24px;
-  cursor:pointer;padding:0 4px;line-height:1;transition:color .2s;
-}
+.head .x{background:none;border:0;color:var(--mut);font-size:24px;cursor:pointer;padding:0 4px;line-height:1;transition:color .2s}
 .head .x:hover{color:#ff5c7c}
-.head .icon-btn{
-  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
-  color:var(--ui);font-size:14px;cursor:pointer;padding:6px 9px;
-  border-radius:9px;transition:all .2s;line-height:1;
-}
+.head .icon-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--ui);font-size:14px;cursor:pointer;padding:6px 9px;border-radius:9px;transition:all .2s;line-height:1}
 .head .icon-btn:hover{background:rgba(255,179,71,.15);border-color:var(--c);color:var(--c)}
 .head .icon-btn.danger:hover{background:rgba(239,68,68,.15);border-color:var(--red);color:var(--red)}
-.head-meta{
-  margin:2px 0 0;color:var(--mut);font-size:12px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-
-.head-stats{
-  display:flex;align-items:center;gap:16px;
-  margin-top:10px;padding-top:10px;
-  border-top:1px solid rgba(255,255,255,.07);
-  flex-wrap:wrap;row-gap:6px;
-  min-height:22px;
-}
+.head-meta{margin:2px 0 0;color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.head-stats{display:flex;align-items:center;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);flex-wrap:wrap;row-gap:6px;min-height:22px}
 .hs{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
-.hs-l{
-  font-size:9px;letter-spacing:.1em;color:var(--mut);
-  font-weight:800;text-transform:uppercase;
-}
-.hs-v{
-  font-size:13px;font-weight:800;color:var(--ui);
-  font-variant-numeric:tabular-nums;
-  font-family:var(--font-mono);letter-spacing:-.01em;
-  transition:color .3s;
-}
+.hs-l{font-size:9px;letter-spacing:.1em;color:var(--mut);font-weight:800;text-transform:uppercase}
+.hs-v{font-size:13px;font-weight:800;color:var(--ui);font-variant-numeric:tabular-nums;font-family:var(--font-mono);letter-spacing:-.01em;transition:color .3s}
 .hs-v.big{font-size:15px}
 .hs-v.price{color:var(--c)}
 .hs-v.pos{color:var(--green)}
 .hs-v.neg{color:var(--red)}
-.hs-loading{
-  font-size:11px;color:var(--mut);font-style:italic;letter-spacing:.04em;
-  animation:skeletonPulse 1.5s ease-in-out infinite;
-}
+.hs-loading{font-size:11px;color:var(--mut);font-style:italic;letter-spacing:.04em;animation:skeletonPulse 1.5s ease-in-out infinite}
 @keyframes skeletonPulse{0%,100%{opacity:.4}50%{opacity:.75}}
-
-@media(max-width:480px){
-  .head-stats{gap:10px}
-  .hs-v{font-size:12px}
-  .hs-v.big{font-size:13.5px}
-  .hs-l{font-size:8.5px}
-}
-
+@media(max-width:480px){.head-stats{gap:10px}.hs-v{font-size:12px}.hs-v.big{font-size:13.5px}.hs-l{font-size:8.5px}}
 .feed-wrap{flex:1;position:relative;min-height:0}
-.feed-wrap::after{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:36px;
-  background:linear-gradient(to top,rgba(9,11,24,.85),transparent);
-  pointer-events:none;
-}
-.feed{
-  height:100%;overflow-y:auto;padding:10px 16px 20px;
-  display:flex;flex-direction:column;gap:8px;
-  scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--c) 50%,transparent) transparent;
-  scroll-behavior:smooth;
-}
+.feed-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:36px;background:linear-gradient(to top,rgba(9,11,24,.85),transparent);pointer-events:none}
+.feed{height:100%;overflow-y:auto;padding:10px 16px 20px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--c) 50%,transparent) transparent;scroll-behavior:smooth}
 .feed::-webkit-scrollbar{width:6px}
 .feed::-webkit-scrollbar-track{background:transparent}
 .feed::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--c) 50%,transparent);border-radius:4px}
 .feed::-webkit-scrollbar-thumb:hover{background:var(--c)}
-
-.msg{
-  display:flex;gap:10px;padding:9px 11px;border-radius:12px;
-  background:rgba(255,255,255,.028);
-  border:1px solid rgba(255,255,255,.04);
-  transition:background .15s,border-color .15s;
-  animation:msgIn .32s cubic-bezier(.2,.8,.2,1);
-}
+.msg{display:flex;gap:10px;padding:9px 11px;border-radius:12px;background:rgba(255,255,255,.028);border:1px solid rgba(255,255,255,.04);transition:background .15s,border-color .15s;animation:msgIn .32s cubic-bezier(.2,.8,.2,1)}
 .msg:hover{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.08)}
 .msg.mine{background:color-mix(in srgb,var(--c) 8%,transparent);border-color:color-mix(in srgb,var(--c) 22%,transparent)}
 @keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.msg-av{
-  width:32px;height:32px;border-radius:50%;flex-shrink:0;
-  display:grid;place-items:center;
-  font:800 12px system-ui;color:#fff;
-  box-shadow:0 0 10px rgba(0,0,0,.35);
-}
+.msg-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font:800 12px system-ui;color:#fff;box-shadow:0 0 10px rgba(0,0,0,.35)}
 .msg-body{flex:1;min-width:0}
 .msg-head{display:flex;gap:8px;align-items:baseline;margin-bottom:3px}
 .msg-head b{font-size:12.5px;color:var(--ui);font-weight:700}
 .msg-head span{font-size:10.5px;color:var(--mut)}
 .msg-body p{margin:0;font-size:14px;line-height:1.45;word-break:break-word;color:#dde2f5}
 .loading{color:var(--mut);font-size:13px;text-align:center;padding:24px;font-style:italic}
-
-.jump-btn{
-  position:absolute;right:16px;bottom:12px;
-  width:38px;height:38px;border-radius:50%;
-  background:var(--c);border:0;color:#0a0b16;
-  font:800 16px system-ui;cursor:pointer;
-  box-shadow:0 4px 16px rgba(0,0,0,.4),0 0 12px color-mix(in srgb,var(--c) 50%,transparent);
-  display:none;place-items:center;z-index:2;
-  transition:transform .2s;
-}
+.jump-btn{position:absolute;right:16px;bottom:12px;width:38px;height:38px;border-radius:50%;background:var(--c);border:0;color:#0a0b16;font:800 16px system-ui;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4),0 0 12px color-mix(in srgb,var(--c) 50%,transparent);display:none;place-items:center;z-index:2;transition:transform .2s}
 .jump-btn.show{display:grid}
 .jump-btn:hover{transform:scale(1.08)}
-
-.compose{
-  display:flex;gap:8px;padding:10px 16px calc(14px + env(safe-area-inset-bottom));
-  flex:none;border-top:1px solid rgba(255,255,255,.05);
-  background:rgba(9,11,24,.75);
-  border-radius:0 0 23px 23px;
-}
+.compose{display:flex;gap:8px;padding:10px 16px calc(14px + env(safe-area-inset-bottom));flex:none;border-top:1px solid rgba(255,255,255,.05);background:rgba(9,11,24,.75);border-radius:0 0 23px 23px}
 .compose-wrap{flex:1;position:relative;min-width:0}
-.compose input{
-  width:100%;background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.1);border-radius:12px;
-  color:var(--ui);padding:12px 60px 12px 14px;
-  font:14px system-ui;outline:none;
-  transition:border-color .2s,background .2s;
-}
+.compose input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:var(--ui);padding:12px 60px 12px 14px;font:14px system-ui;outline:none;transition:border-color .2s,background .2s}
 .compose input:focus{border-color:var(--c);background:rgba(255,255,255,.08)}
 .compose input:disabled{opacity:.45;cursor:not-allowed}
-.char-count{
-  position:absolute;right:12px;top:50%;transform:translateY(-50%);
-  font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums;
-  pointer-events:none;opacity:0;transition:opacity .2s;
-}
+.char-count{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums;pointer-events:none;opacity:0;transition:opacity .2s}
 .compose input:focus ~ .char-count{opacity:1}
-.compose button{
-  background:linear-gradient(135deg,var(--c),#ffd27a);
-  border:0;border-radius:12px;color:#0a0b16;
-  font:800 13px system-ui;padding:0 20px;cursor:pointer;
-  transition:filter .2s,box-shadow .2s;white-space:nowrap;
-}
+.compose button{background:linear-gradient(135deg,var(--c),#ffd27a);border:0;border-radius:12px;color:#0a0b16;font:800 13px system-ui;padding:0 20px;cursor:pointer;transition:filter .2s,box-shadow .2s;white-space:nowrap}
 .compose button:hover{filter:brightness(1.1);box-shadow:0 0 16px rgba(255,179,71,.4)}
 .compose button:disabled{opacity:.4;cursor:not-allowed;filter:none;box-shadow:none}
-
-.modal{
-  position:fixed;inset:0;background:rgba(0,0,0,.78);
-  backdrop-filter:blur(10px);z-index:20;
-  display:none;place-items:center;padding:20px;
-}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);z-index:20;display:none;place-items:center;padding:20px}
 .modal.open{display:grid}
-.modal-box{
-  background:linear-gradient(180deg,rgba(20,23,48,.98),rgba(14,17,38,.98));
-  border:1px solid rgba(255,255,255,.14);border-radius:20px;
-  padding:24px;width:100%;max-width:420px;
-  box-shadow:0 24px 48px rgba(0,0,0,.85),0 0 40px rgba(255,179,71,.12);
-  animation:modalIn .28s cubic-bezier(.2,.8,.2,1);
-}
+.modal-box{background:linear-gradient(180deg,rgba(20,23,48,.98),rgba(14,17,38,.98));border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:24px;width:100%;max-width:420px;box-shadow:0 24px 48px rgba(0,0,0,.85),0 0 40px rgba(255,179,71,.12);animation:modalIn .28s cubic-bezier(.2,.8,.2,1)}
 @keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
 .modal-head h3{margin:0;color:#ffd27a;font-size:16px;letter-spacing:.06em;font-weight:800}
 .modal-x{background:none;border:0;color:var(--mut);font-size:24px;cursor:pointer;padding:0 4px;line-height:1;transition:color .2s}
 .modal-x:hover{color:#ff5c7c}
-.modal-box input{
-  width:100%;background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.12);color:#fff;
-  padding:13px;font:14px system-ui;margin-bottom:16px;
-  border-radius:12px;outline:none;transition:border-color .2s;
-}
+.modal-box input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:13px;font:14px system-ui;margin-bottom:16px;border-radius:12px;outline:none;transition:border-color .2s}
 .modal-box input:focus{border-color:#ffd27a}
-.modal-box button.primary{
-  width:100%;background:#ffd27a;border:0;color:#0a0b16;
-  padding:13px;font:800 14px system-ui;border-radius:12px;
-  cursor:pointer;transition:all .2s;
-}
+.modal-box button.primary{width:100%;background:#ffd27a;border:0;color:#0a0b16;padding:13px;font:800 14px system-ui;border-radius:12px;cursor:pointer;transition:all .2s}
 .modal-box button.primary:hover{filter:brightness(1.1);box-shadow:0 0 18px rgba(255,210,122,.4)}
 .modal-box button.primary:disabled{opacity:.5;cursor:not-allowed;filter:none;box-shadow:none}
 .modal-box p{margin:0 0 22px;color:var(--ui);font-size:14.5px;line-height:1.55;text-align:center}
-
-#toast-container{
-  position:fixed;top:calc(80px + env(safe-area-inset-top));left:50%;
-  transform:translateX(-50%);z-index:9999;
-  display:flex;flex-direction:column;gap:8px;pointer-events:none;
-}
-.toast{
-  background:rgba(20,23,48,.96);border:1px solid var(--c);color:#fff;
-  padding:10px 20px;border-radius:10px;font:600 13.5px system-ui;
-  box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 18px color-mix(in srgb,var(--c) 40%,transparent);
-  animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;
-  white-space:nowrap;
-}
+#toast-container{position:fixed;top:calc(80px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:rgba(20,23,48,.96);border:1px solid var(--c);color:#fff;padding:10px 20px;border-radius:10px;font:600 13.5px system-ui;box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 18px color-mix(in srgb,var(--c) 40%,transparent);animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;white-space:nowrap}
 @keyframes toastIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes toastOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-12px)}}
+
+.eco-banner{
+  position:fixed;top:calc(80px + env(safe-area-inset-top));left:50%;
+  transform:translateX(-50%);display:none;align-items:center;gap:8px;
+  background:rgba(14,17,38,.94);border:1px solid var(--eco-color, rgba(255,140,60,.65));
+  padding:8px 6px 8px 16px;border-radius:999px;
+  font:700 13px system-ui;color:var(--eco-color, #ffb27a);
+  box-shadow:0 0 24px var(--eco-color, rgba(255,140,60,.35)), inset 0 0 12px rgba(255,140,60,.08);
+  backdrop-filter:blur(14px);z-index:8;
+  animation:ecoBannerIn .3s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes ecoBannerIn{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.eco-banner.show{display:flex}
+.eco-banner .eco-ic{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--eco-color, #ff8c3c);color:#0a0b16;font:900 10px system-ui;letter-spacing:.02em}
+.eco-banner .eco-count{background:color-mix(in srgb, var(--eco-color, #ff8c3c) 22%, transparent);padding:3px 9px;border-radius:999px;font-size:11px;letter-spacing:.04em}
+.eco-banner .eco-add{background:rgba(255,255,255,.08);border:0;color:var(--eco-color,#ffb27a);width:26px;height:26px;border-radius:50%;cursor:pointer;font:700 16px/1 system-ui;display:grid;place-items:center;transition:all .2s}
+.eco-banner .eco-add:hover{background:var(--eco-color,#ffb27a);color:#0a0b16}
+.eco-banner .eco-close{background:rgba(255,255,255,.08);border:0;color:var(--eco-color, #ffb27a);width:26px;height:26px;border-radius:50%;cursor:pointer;font:16px/1 system-ui;display:grid;place-items:center;transition:all .2s}
+.eco-banner .eco-close:hover{background:rgba(239,68,68,.25);color:#ef4444}
+@media(max-width:560px){.eco-banner{top:calc(130px + env(safe-area-inset-top));font-size:12px;padding:7px 6px 7px 14px}}
 </style>
 </head>
 <body class="booting">
@@ -395,6 +165,14 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
   </div>
 </div>
 
+<div class="eco-banner" id="ecoBanner">
+  <span class="eco-ic" id="ecoIc">ETH</span>
+  <span id="ecoName">Ethereum</span>
+  <span class="eco-count" id="ecoCount">0 COINS</span>
+  <button class="eco-add" id="ecoAddBtn" title="Add coin">+</button>
+  <button class="eco-close" id="ecoClose" title="Back to Solana">×</button>
+</div>
+
 <div class="dock" id="dock"></div>
 <div class="sheet" id="sheet"></div>
 <div id="toast-container"></div>
@@ -407,6 +185,18 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
     </div>
     <input type="text" id="caInput" placeholder="Paste Token CA (Contract Address)…" autocomplete="off" spellcheck="false">
     <button class="primary" id="createBtn">Launch Planet</button>
+  </div>
+</div>
+
+<div class="modal" id="addCoinModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="addCoinTitle">Add Coin</h3>
+      <button class="modal-x" id="addCoinCloseBtn">✕</button>
+    </div>
+    <p id="addCoinDesc" style="margin-bottom:14px">Paste a contract address.</p>
+    <input type="text" id="addCoinInput" placeholder="Contract address…" autocomplete="off" spellcheck="false">
+    <button class="primary" id="addCoinBtn">Add Coin</button>
   </div>
 </div>
 
@@ -449,41 +239,22 @@ const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const TAU = Math.PI * 2;
 
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+function esc(s) { return String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
+function initials(n) { const w = String(n || '').trim().split(/\s+/); return (((w[0] || '?')[0] || '?') + (w[1] ? w[1][0] : '')).toUpperCase(); }
+function hashColor(str) { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return `hsl(${Math.abs(h) % 360}, 65%, 52%)`; }
+function fmtPrice(p) { if (!p || p <= 0) return '$0.00'; if (p < 0.00001) return '$' + p.toExponential(2); if (p < 0.001) return '$' + p.toFixed(6); if (p < 1) return '$' + p.toFixed(4); return '$' + p.toLocaleString(undefined, { maximumFractionDigits: 2 }); }
+function fmtBig(n) { if (!n || n <= 0) return '$0'; if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B'; if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M'; if (n >= 1e3) return '$' + (n / 1e3).toFixed(2) + 'K'; return '$' + n.toFixed(0); }
+function relTime(ts) { const m = Math.max(1, Math.round((Date.now() - new Date(ts).getTime()) / 60000)); return m < 60 ? m + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; }
+function withTimeout(p, ms, label) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error((label || 'Request') + ' timed out')), ms))]); }
+function coinFallbackSvg(symbol, color) {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${color || '#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="42" fill="#fff">${esc((symbol || '?')[0])}</text></svg>`
+  );
 }
-function initials(n) {
-  const w = String(n || '').trim().split(/\s+/);
-  return (((w[0] || '?')[0] || '?') + (w[1] ? w[1][0] : '')).toUpperCase();
-}
-function hashColor(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return `hsl(${Math.abs(h) % 360}, 65%, 52%)`;
-}
-function fmtPrice(p) {
-  if (!p || p <= 0) return '$0.00';
-  if (p < 0.00001) return '$' + p.toExponential(2);
-  if (p < 0.001) return '$' + p.toFixed(6);
-  if (p < 1) return '$' + p.toFixed(4);
-  return '$' + p.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-function fmtBig(n) {
-  if (!n || n <= 0) return '$0';
-  if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
-  if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return '$' + (n / 1e3).toFixed(2) + 'K';
-  return '$' + n.toFixed(0);
-}
-function relTime(ts) {
-  const m = Math.max(1, Math.round((Date.now() - new Date(ts).getTime()) / 60000));
-  return m < 60 ? m + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd';
-}
-function withTimeout(p, ms, label) {
-  return Promise.race([
-    p,
-    new Promise((_, rej) => setTimeout(() => rej(new Error((label || 'Request') + ' timed out')), ms))
-  ]);
+function hexA(hex, a) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -500,7 +271,7 @@ function showToast(msg, isError = false) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   3. LIVE SOL PRICE STATE (feeds the 3D SOL planet)
+   3. LIVE SOL PRICE
    ═══════════════════════════════════════════════════════════════ */
 let solData = null;
 let solFlashAt = -99;
@@ -509,18 +280,12 @@ let solPrev = 0;
 async function fetchSolPrice() {
   try {
     const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=SOLUSDT');
-    if (r.ok) {
-      const d = await r.json();
-      return { price: parseFloat(d.lastPrice), change: parseFloat(d.priceChangePercent) };
-    }
-  } catch (e) { /* fall through */ }
+    if (r.ok) { const d = await r.json(); return { price: parseFloat(d.lastPrice), change: parseFloat(d.priceChangePercent) }; }
+  } catch (e) {}
   try {
     const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true');
-    if (r.ok) {
-      const d = await r.json();
-      return { price: d.solana.usd, change: d.solana.usd_24h_change };
-    }
-  } catch (e) { /* ignore */ }
+    if (r.ok) { const d = await r.json(); return { price: d.solana.usd, change: d.solana.usd_24h_change }; }
+  } catch (e) {}
   return null;
 }
 
@@ -531,7 +296,6 @@ async function updateSolPrice() {
   solPrev = d.price;
   solData = d;
 }
-
 updateSolPrice();
 setInterval(updateSolPrice, 20000);
 
@@ -552,10 +316,7 @@ function updateAuthUI() {
 
 async function connectWallet() {
   const provider = window.phantom?.solana || window.solana;
-  if (!provider || !provider.isPhantom) {
-    showToast('Phantom wallet not found! Install it first.', true);
-    return;
-  }
+  if (!provider || !provider.isPhantom) { showToast('Phantom wallet not found! Install it first.', true); return; }
   try {
     phantomBtn.textContent = 'CONNECTING…';
     const resp = await withTimeout(provider.connect({ onlyIfTrusted: false }), 60000, 'Wallet connect');
@@ -563,16 +324,13 @@ async function connectWallet() {
     localStorage.setItem('orbit_wallet', walletAddress);
     updateAuthUI();
     showToast('Wallet connected ✓');
-
-    if (presenceChannel) {
-      presenceChannel.track({ online_at: new Date().toISOString(), wallet: walletAddress });
-    }
+    if (presenceChannel) presenceChannel.track({ online_at: new Date().toISOString(), wallet: walletAddress });
     if (myUsername === 'Anon') {
       const name = prompt('Wallet connected! Choose a username:');
       myUsername = (name && name.trim()) || 'Anon' + Math.floor(Math.random() * 1000);
       localStorage.setItem('orbit_user', myUsername);
     }
-    if (selId && selId !== 'core') {
+    if (selId && selId !== 'core' && !ECOSYSTEMS.find(e => e.key === selId)) {
       const room = ALL.find(c => c.id === selId);
       if (room) openChat(room.id, room.name, room.color, room.ca);
     }
@@ -587,22 +345,19 @@ async function disconnectWallet() {
   try {
     const provider = window.phantom?.solana || window.solana;
     if (provider) await provider.disconnect();
-  } catch (e) { /* ignore */ }
+  } catch (e) {}
   walletAddress = null;
   localStorage.removeItem('orbit_wallet');
   updateAuthUI();
   showToast('Wallet disconnected');
   if (presenceChannel) presenceChannel.track({ online_at: new Date().toISOString(), wallet: 'guest' });
-  if (selId && selId !== 'core') {
+  if (selId && selId !== 'core' && !ECOSYSTEMS.find(e => e.key === selId)) {
     const room = ALL.find(c => c.id === selId);
     if (room) openChat(room.id, room.name, room.color, room.ca);
   }
 }
 
-phantomBtn.onclick = () => {
-  if (walletAddress) disconnectWallet();
-  else connectWallet();
-};
+phantomBtn.onclick = () => { if (walletAddress) disconnectWallet(); else connectWallet(); };
 
 if (localStorage.getItem('orbit_wallet')) {
   walletAddress = localStorage.getItem('orbit_wallet');
@@ -626,11 +381,7 @@ let presenceChannel = null;
 function initPresence() {
   const clientId = localStorage.getItem('orbit_client_id') || 'c_' + Math.random().toString(36).slice(2);
   localStorage.setItem('orbit_client_id', clientId);
-
-  presenceChannel = sb.channel('orbit-online-presence', {
-    config: { presence: { key: clientId } }
-  });
-
+  presenceChannel = sb.channel('orbit-online-presence', { config: { presence: { key: clientId } } });
   presenceChannel
     .on('presence', { event: 'sync' }, () => {
       const state = presenceChannel.presenceState();
@@ -640,16 +391,13 @@ function initPresence() {
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        await presenceChannel.track({
-          online_at: new Date().toISOString(),
-          wallet: walletAddress || 'guest'
-        });
+        await presenceChannel.track({ online_at: new Date().toISOString(), wallet: walletAddress || 'guest' });
       }
     });
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   6. TOKEN STATS (DexScreener)
+   6. TOKEN STATS
    ═══════════════════════════════════════════════════════════════ */
 const statsCache = new Map();
 const STATS_TTL = 45000;
@@ -659,17 +407,14 @@ async function getTokenStats(ca, force = false) {
   if (!ca) return null;
   const cached = statsCache.get(ca);
   if (!force && cached && Date.now() - cached.ts < STATS_TTL) return cached.data;
-
   try {
     const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
     if (!res.ok) return cached?.data || null;
     const json = await res.json();
     const pairs = json.pairs || [];
     if (!pairs.length) return cached?.data || null;
-
     pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
     const pair = pairs[0];
-
     const data = {
       price: parseFloat(pair.priceUsd) || 0,
       change: parseFloat(pair.priceChange?.h24) || 0,
@@ -681,9 +426,7 @@ async function getTokenStats(ca, force = false) {
     };
     statsCache.set(ca, { data, ts: Date.now() });
     return data;
-  } catch (e) {
-    return cached?.data || null;
-  }
+  } catch (e) { return cached?.data || null; }
 }
 
 function renderStatsHTML(data) {
@@ -700,23 +443,17 @@ function renderStatsHTML(data) {
 async function renderTokenStats(roomId, ca, container) {
   if (!ca) return;
   const reqId = ++statsReqId;
-
   const cached = statsCache.get(ca);
-  container.innerHTML = cached
-    ? renderStatsHTML(cached.data)
-    : '<div class="hs-loading">Loading market data…</div>';
-
+  container.innerHTML = cached ? renderStatsHTML(cached.data) : '<div class="hs-loading">Loading market data…</div>';
   const data = await getTokenStats(ca, true);
-
   if (reqId !== statsReqId) return;
   if (!container.isConnected) return;
   if (currentRoomId !== roomId) return;
-
   container.innerHTML = renderStatsHTML(data);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   6.5 TOKEN BALANCE CHECK (Helius) — fast + cached + non-blocking
+   6.5 BALANCE CHECK
    ═══════════════════════════════════════════════════════════════ */
 const balanceCache = new Map();
 const BALANCE_TTL = 60000;
@@ -742,27 +479,17 @@ async function heliusRpc(method, params, timeoutMs) {
   } catch (e) {
     if (e.name === 'AbortError') throw new Error(method + ' timed out');
     throw e;
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
 
 async function fetchTokenBalance(wallet, mint) {
   const key = wallet + ':' + mint;
   const cached = balanceCache.get(key);
   if (cached && Date.now() - cached.ts < BALANCE_TTL) return cached.balance;
-
   let balance = 0;
   let dasOk = false;
-
   try {
-    const result = await heliusRpc('getAssetsByOwner', {
-      ownerAddress: wallet,
-      page: 1,
-      limit: 1000,
-      displayOptions: { showFungible: true }
-    }, 6000);
-
+    const result = await heliusRpc('getAssetsByOwner', { ownerAddress: wallet, page: 1, limit: 1000, displayOptions: { showFungible: true } }, 6000);
     const items = result?.items || [];
     for (const item of items) {
       if (item.id === mint && item.token_info?.balance) {
@@ -772,43 +499,27 @@ async function fetchTokenBalance(wallet, mint) {
       }
     }
     dasOk = true;
-  } catch (e) {
-    console.warn('[ORBITS] DAS getAssetsByOwner failed, using fallback:', e.message);
-  }
-
+  } catch (e) { console.warn('[ORBITS] DAS failed:', e.message); }
   if (!dasOk) {
-    const result = await heliusRpc('getTokenAccountsByOwner', [
-      wallet,
-      { mint },
-      { encoding: 'jsonParsed' }
-    ], 12000);
+    const result = await heliusRpc('getTokenAccountsByOwner', [wallet, { mint }, { encoding: 'jsonParsed' }], 12000);
     const accounts = result?.value || [];
-    accounts.forEach(acc => {
-      balance += acc.account.data.parsed?.info?.tokenAmount?.uiAmount || 0;
-    });
+    accounts.forEach(acc => { balance += acc.account.data.parsed?.info?.tokenAmount?.uiAmount || 0; });
   }
-
   balanceCache.set(key, { balance, ts: Date.now() });
   return balance;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   6.6 SOL SYSTEM — 3D orrery at 45° elevation above main orbits
+   6.6 SOL ASSETS
    ═══════════════════════════════════════════════════════════════ */
-/*  ↓↓↓ PASTE YOUR LOGO URLS HERE ↓↓↓  */
 const SOL_ICONS = {
-  sol:  '',   // Solana logo (leave '' to draw the mark procedurally)
+  sol:  '',
   pump: 'https://i.postimg.cc/ry9HG152/pumplogo.png',
   x:    'https://i.postimg.cc/66hPVrCN/Xlogo.png',
   dex:  'https://i.postimg.cc/T2csjVn6/Dex-Logo.png'
 };
-/*  ↑↑↑ PASTE YOUR LOGO URLS HERE ↑↑↑  */
 
-const SOL_LINKS = {
-  pump: 'https://pump.fun',
-  x:    'https://x.com',
-  dex:  'https://dexscreener.com'
-};
+const SOL_LINKS = { pump: 'https://pump.fun', x: 'https://x.com', dex: 'https://dexscreener.com' };
 
 const SOL_BODIES = [
   { key: 'pump', color: '#3ddc84', glyph: 'p', ang: -Math.PI / 2,               gcol: '#05230f' },
@@ -818,47 +529,13 @@ const SOL_BODIES = [
 
 SOL_BODIES.forEach(b => {
   const url = SOL_ICONS[b.key];
-  if (url) {
-    b.img = new Image();
-    b.img.src = url;
-  }
+  if (url) { b.img = new Image(); b.img.src = url; }
 });
 
 const solLogoImg = (() => {
   if (!SOL_ICONS.sol) return null;
-  const i = new Image();
-  i.src = SOL_ICONS.sol;
-  return i;
+  const i = new Image(); i.src = SOL_ICONS.sol; return i;
 })();
-
-const SOL_CFG = {
-  origin: [0, 0, 0],
-  orbitR: 0,
-  iconR: 0,
-  solR: 0,
-  iconSz: 0,
-  active: false
-};
-
-const solState = {
-  wx: 0, wy: 0, wz: 0,
-  px: 0, py: 0, pz: 0, pr: 0,
-  cx: 0, cy: 0, cz: 0, cs: 0,
-  hudX: 0, hudY: 0
-};
-
-function layoutSol() {
-  // 45° elevation from the main orbital plane
-  SOL_CFG.origin[0] = outerR * 0.60;
-  SOL_CFG.origin[1] = outerR * 0.633;
-  SOL_CFG.origin[2] = outerR * 0.20;
-  // SOL is the center body; icons orbit around it
-  SOL_CFG.orbitR   = outerR * 0.30;   // icons' orbital radius
-  SOL_CFG.iconR    = outerR * 0.045;  // unused now, kept for compat
-  SOL_CFG.solR     = outerR * 0.20;   // SOL is big & central
-  SOL_CFG.iconSz   = outerR * 0.032;  // icons slightly smaller
-  SOL_CFG.active   = true;
-}
 
 function rr(x, y, w, h, r) {
   ctx.beginPath();
@@ -871,7 +548,6 @@ function rr(x, y, w, h, r) {
   ctx.closePath();
 }
 
-/* three skewed bars — fallback Solana mark */
 function solanaMark(x, y, s, color) {
   const bw = s * 2, bh = s * 0.40, sp = s * 0.60, sk = s * 0.34;
   ctx.fillStyle = color;
@@ -890,7 +566,6 @@ function solanaMark(x, y, s, color) {
 function drawBall(x, y, r, color, img, glyph, glyphColor) {
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
-
   if (img && img.complete && img.naturalWidth > 0) {
     ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
   } else {
@@ -899,12 +574,10 @@ function drawBall(x, y, r, color, img, glyph, glyphColor) {
     if (glyph) {
       ctx.fillStyle = glyphColor || '#fff';
       ctx.font = `900 ${Math.round(r * 1.15)}px system-ui,sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(glyph, x, y + r * 0.06);
     }
   }
-
   const g = ctx.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.05, x, y, r * 1.1);
   g.addColorStop(0, 'rgba(255,255,255,.32)');
   g.addColorStop(0.5, 'rgba(255,255,255,0)');
@@ -912,7 +585,6 @@ function drawBall(x, y, r, color, img, glyph, glyphColor) {
   ctx.fillStyle = g;
   ctx.fillRect(x - r, y - r, r * 2, r * 2);
   ctx.restore();
-
   ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
   ctx.strokeStyle = 'rgba(255,255,255,.28)';
   ctx.lineWidth = 1;
@@ -928,10 +600,8 @@ function drawSolPlanet(x, y, r) {
   ctx.fillStyle = glow;
   ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, TAU); ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
-
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
-
   if (solLogoImg && solLogoImg.complete && solLogoImg.naturalWidth > 0) {
     ctx.drawImage(solLogoImg, x - r, y - r, r * 2, r * 2);
   } else {
@@ -942,7 +612,6 @@ function drawSolPlanet(x, y, r) {
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
     solanaMark(x, y, r * 0.52, '#ffffff');
   }
-
   const sh = ctx.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.05, x, y, r * 1.1);
   sh.addColorStop(0, 'rgba(255,255,255,.30)');
   sh.addColorStop(0.5, 'rgba(255,255,255,0)');
@@ -950,7 +619,6 @@ function drawSolPlanet(x, y, r) {
   ctx.fillStyle = sh;
   ctx.fillRect(x - r, y - r, r * 2, r * 2);
   ctx.restore();
-
   ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
   ctx.strokeStyle = 'rgba(20,241,149,.55)';
   ctx.lineWidth = 1.4;
@@ -961,140 +629,116 @@ function drawSolHUD(cx, cy) {
   const price = solData ? fmtPrice(solData.price) : '$--.--';
   const chg = solData ? (solData.change >= 0 ? '+' : '') + solData.change.toFixed(2) + '%' : '--%';
   const up = solData ? solData.change >= 0 : true;
-
   const pf = '800 12.5px ui-monospace,"SF Mono",Menlo,monospace';
   const cf = '700 10.5px ui-monospace,"SF Mono",Menlo,monospace';
-
   ctx.font = pf; const pw = ctx.measureText(price).width;
   ctx.font = cf; const cw = ctx.measureText(chg).width;
-
   const iconW = 13, g1 = 6, g2 = 8;
   const total = iconW + g1 + pw + g2 + cw;
   const h = 22, left = cx - total / 2;
-
   rr(left - 11, cy - h / 2, total + 22, h, h / 2);
-  ctx.fillStyle = 'rgba(9,11,24,.82)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(153,69,255,.5)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
+  ctx.fillStyle = 'rgba(9,11,24,.82)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(153,69,255,.5)'; ctx.lineWidth = 1; ctx.stroke();
   solanaMark(left + iconW / 2, cy, 4.6, '#14F195');
-
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.font = pf;
-  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.font = pf; ctx.fillStyle = '#ffffff';
   ctx.fillText(price, left + iconW + g1, cy + 0.5);
-
   ctx.font = cf;
   ctx.fillStyle = up ? '#14F195' : '#ff5c7c';
   ctx.fillText(chg, left + iconW + g1 + pw + g2, cy + 0.5);
 }
 
-function drawSolSystem(t, list) {
-  if (!SOL_CFG.active || !outerR) return;
-  const ox = SOL_CFG.origin[0], oy = SOL_CFG.origin[1], oz = SOL_CFG.origin[2];
+function drawSolBody(body, px, py, pz, R, centerness, t, list) {
+  const hover = hoverId === 'sol-body';
+  const act = centerness > 0.5;
 
-  P(ox, oy, oz);
-  if (PZ < 80) return;
-  solState.cx = PX; solState.cy = PY; solState.cz = PZ; solState.cs = PS;
+  list.push({ z: pz, f: () => {
+    drawSolPlanet(px, py, R);
 
-  // Icons' orbit ring around SOL (tilted circle in XZ plane)
-  ctx.save();
-  ctx.strokeStyle = 'rgba(153,69,255,.55)';
-  ctx.lineWidth = 1.2;
-  ctx.setLineDash([3, 7]);
-  ctx.lineDashOffset = -t * 20;
-  ctx.beginPath();
-  let pen = false;
-  for (let k = 0; k <= 90; k++) {
-    const a = k / 90 * TAU;
-    P(ox + SOL_CFG.orbitR * Math.cos(a),
-      oy + SOL_CFG.orbitR * 0.22 * Math.sin(a),
-      oz + SOL_CFG.orbitR * Math.sin(a));
-    if (PZ < 40) { pen = false; continue; }
-    if (pen) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); pen = true; }
+    if (hover) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, R * 1.25, 0, TAU);
+      ctx.strokeStyle = '#14F195';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.lineDashOffset = -t * 20;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (centerness > 0.4) {
+      const a = clamp((centerness - 0.4) / 0.4, 0, 1);
+      ctx.globalAlpha = a;
+      drawSolHUD(px, py + R + 22);
+      ctx.globalAlpha = 1;
+    }
+
+    if (centerness > 0.4) {
+      const a = clamp((centerness - 0.4) / 0.4, 0, 1);
+      const labelSize = clamp(R * (0.16 + 0.04 * centerness), 10, 20);
+      ctx.globalAlpha = a;
+      ctx.font = `900 ${labelSize}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = act ? '#fff' : 'rgba(225,240,255,.9)';
+      ctx.shadowColor = 'rgba(20,241,149,.85)';
+      ctx.shadowBlur = 8 + centerness * 16;
+      ctx.fillText('SOLANA', px, py + R + 22 + 36);
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    } else if (R > 8) {
+      ctx.font = `700 ${clamp(R * 0.4, 9, 13)}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(225,240,255,.9)';
+      ctx.shadowColor = 'rgba(20,241,149,.85)';
+      ctx.shadowBlur = 6;
+      ctx.fillText('SOL', px, py + R + 14);
+      ctx.shadowBlur = 0;
+    }
+
+    hits.push({ id: 'sol-body', x: px, y: py, r: R * 1.2, z: pz, bodyKey: 'sol' });
+  }});
+
+  if (centerness > 0.5) {
+    const extrasAlpha = clamp((centerness - 0.5) / 0.3, 0, 1);
+    const ORB = R * 2.5;
+    const TILT = 0.22;
+
+    for (let i = 0; i < SOL_BODIES.length; i++) {
+      const b = SOL_BODIES[i];
+      const a = b.ang + t * 0.35;
+      // ← FIX: pumps orbit the BODY, not world origin
+      P(body.wx + ORB * Math.cos(a),
+        body.wy + ORB * TILT * Math.sin(a),
+        body.wz + ORB * Math.sin(a));
+      if (PZ < 40) continue;
+      const bx = PX, by = PY, bz = PZ;
+      const pr = Math.max(8, R * 0.14);
+
+      list.push({ z: bz, f: () => {
+        ctx.globalAlpha = extrasAlpha;
+        drawBall(bx, by, pr, b.color, b.img, b.glyph, b.gcol);
+        if (hoverId === b.key) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(bx, by, pr * 1.4, 0, TAU);
+          ctx.strokeStyle = b.color;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.lineDashOffset = -t * 15;
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+        hits.push({ id: b.key, x: bx, y: by, r: pr * 1.35, z: bz, sol: true });
+      }});
+    }
   }
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
-
-  // SOL is FIXED at the center of the mini-constellation
-  solState.px = solState.cx;
-  solState.py = solState.cy;
-  solState.pz = solState.cz;
-  const flash = clamp(1 - (t - solFlashAt) / 0.9, 0, 1);
-  const hoverSol = (hoverId === 'sol');
-  solState.pr = Math.max(10, SOL_CFG.solR * PS * (1 + flash * 0.10 + (hoverSol ? 0.05 : 0)));
-
-  solState.hudX = solState.px;
-  solState.hudY = solState.py + solState.pr + 30;
-
-  // Icons ORBIT around SOL
-  SOL_BODIES.forEach((b, i) => {
-    const a = b.ang + t * 0.45 + Math.sin(t * 0.7 + i * 2.1) * 0.06;
-    b.wx = ox + SOL_CFG.orbitR * Math.cos(a);
-    b.wy = oy + SOL_CFG.orbitR * 0.22 * Math.sin(a);
-    b.wz = oz + SOL_CFG.orbitR * Math.sin(a);
-    P(b.wx, b.wy, b.wz);
-    b.px = PX; b.py = PY; b.pz = PZ;
-    b.pr = Math.max(4, SOL_CFG.iconSz * PS);
-  });
-
-  // Push SOL into the depth-sorted list (center body)
-  if (solState.pz > 40) {
-    list.push({ z: solState.pz, f: () => {
-      drawSolPlanet(solState.px, solState.py, solState.pr);
-      if (hoverSol) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(solState.px, solState.py, solState.pr * 1.3, 0, TAU);
-        ctx.strokeStyle = '#14F195';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        ctx.lineDashOffset = -t * 15;
-        ctx.stroke();
-        ctx.restore();
-      }
-      hits.push({ id: 'sol', x: solState.px, y: solState.py, r: solState.pr * 1.15, z: solState.pz, sol: true });
-    }});
-  }
-
-   // Push orbiting icons into the depth-sorted list
-  SOL_BODIES.forEach(b => {
-    if (b.pz < 40) return;
-    const hovered = (hoverId === b.key);
-    list.push({ z: b.pz, f: () => {
-      drawBall(b.px, b.py, b.pr, b.color, b.img, b.glyph, b.gcol);
-      if (hovered) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(b.px, b.py, b.pr * 1.4, 0, TAU);
-        ctx.strokeStyle = b.color;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        ctx.lineDashOffset = -t * 15;
-        ctx.stroke();
-        ctx.restore();
-      }
-      hits.push({ id: b.key, x: b.px, y: b.py, r: b.pr * 1.35, z: b.pz, sol: true });
-    }});
-  });
 }
 
 function onSolBodyClick(id) {
-  if (id === 'sol') {
-    solFlashAt = performance.now() / 1000;
-    updateSolPrice();
-    if (solData) {
-      const sign = solData.change >= 0 ? '+' : '';
-      showToast(`◎ SOL ${fmtPrice(solData.price)} ${sign}${solData.change.toFixed(2)}%`);
-    } else {
-      showToast('◎ SOL price loading…');
-    }
-    return;
-  }
   const url = SOL_LINKS[id];
   if (url) {
     const names = { pump: 'pump.fun', x: 'X', dex: 'DexScreener' };
@@ -1102,6 +746,583 @@ function onSolBodyClick(id) {
     window.open(url, '_blank', 'noopener');
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   6.7 ECOSYSTEMS + SWAP BODIES
+   ═══════════════════════════════════════════════════════════════ */
+const ECOSYSTEMS = [
+  { key: 'eth', name: 'Ethereum', symbol: 'ETH', color: '#627EEA', chainId: 'ethereum',
+    logo: 'https://i.postimg.cc/9XpN1Bhs/images-(12).png', coins: [] },
+  { key: 'bnb', name: 'BNB Chain', symbol: 'BNB', color: '#F3BA2F', chainId: 'bsc',
+    logo: 'https://i.postimg.cc/T29HQc6Z/images-(10).png', coins: [] },
+  { key: 'rh', name: 'Robinhood', symbol: 'RH', color: '#FF8C3C', chainId: 'robinhood',
+    logo: 'https://i.postimg.cc/PxKzb2wM/images-(9).png', coins: [] }
+];
+
+ECOSYSTEMS.forEach(e => {
+  e.img = new Image();
+  e.img.src = e.logo;
+  e.lastCoinAddAt = -99;
+});
+
+const BODY_KEYS = ['eth', 'bnb', 'rh', 'sol'];
+const BODIES = BODY_KEYS.map((key, i) => ({
+  key,
+  isSol: key === 'sol',
+  slot: i % 3,
+  isCenter: key === 'sol',
+  wx: 0, wy: 0, wz: 0
+}));
+
+const SLOT_ANGLES = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
+const SLOT_Y = [0.10, -0.05, 0.15];
+
+const ECO_RING = { radius: 0, elevation: 0 };
+let ringRotation = 0;
+
+function getEco(key) { return ECOSYSTEMS.find(e => e.key === key); }
+function getBody(key) { return BODIES.find(b => b.key === key); }
+
+function layoutEcosystems() {
+  ECO_RING.radius = outerR * 1.55;
+  ECO_RING.elevation = outerR * 0.42;
+  outerR = Math.max(outerR, ECO_RING.radius * 1.08);
+}
+
+function initBodies() {
+  for (const b of BODIES) {
+    const [tx, ty, tz] = getTargetPos(b);
+    b.wx = tx; b.wy = ty; b.wz = tz;
+  }
+}
+
+function getTargetPos(body) {
+  if (body.isCenter) return [0, 0, 0];
+  const a = SLOT_ANGLES[body.slot] + ringRotation;
+  const yOff = SLOT_Y[body.slot] * ECO_RING.radius;
+  return [ECO_RING.radius * Math.cos(a), ECO_RING.elevation + yOff, ECO_RING.radius * Math.sin(a)];
+}
+
+/* ─── Transition FX state (softer, still epic) ─── */
+let warp = 0;
+let warpColor = 'rgb(255,255,255)';
+const shocks = [];
+const swapParticles = [];
+let shakeAmount = 0;
+let coloredFlash = 0;
+let coloredFlashColor = '#ffffff';
+
+function triggerSwapFX(color) {
+  warp = 0.55;
+  warpColor = color;
+
+  const now = performance.now() / 1000;
+  shocks.push({ t0: now, color, delay: 0,   duration: 1.4, speed: 900, width: 4 });
+  shocks.push({ t0: now, color, delay: 0.2, duration: 1.6, speed: 700, width: 3 });
+
+  const cx = W / 2, cy = cenY;
+  for (let i = 0; i < 65; i++) {
+    const a = Math.random() * TAU;
+    const sp = 180 + Math.random() * 520;
+    swapParticles.push({
+      x: cx, y: cy,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp,
+      life: 0.6 + Math.random() * 0.8,
+      age: 0,
+      color: i % 4 === 0 ? '#ffffff' : color,
+      size: 2 + Math.random() * 2.5
+    });
+  }
+
+  shakeAmount = 0.35;
+  coloredFlash = 0.5;
+  coloredFlashColor = color;
+}
+
+function triggerCoinAddFX(eco) {
+  eco.lastCoinAddAt = performance.now() / 1000;
+  const body = getBody(eco.key);
+  if (!body) return;
+  P(body.wx, body.wy, body.wz);
+  if (PZ < 40) return;
+  const cx = PX, cy = PY;
+  for (let i = 0; i < 45; i++) {
+    const a = Math.random() * TAU;
+    const sp = 100 + Math.random() * 320;
+    swapParticles.push({
+      x: cx, y: cy,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp,
+      life: 0.5 + Math.random() * 0.7,
+      age: 0,
+      color: i % 3 === 0 ? '#ffffff' : eco.color,
+      size: 2 + Math.random() * 2
+    });
+  }
+}
+
+function swapCenterTo(targetKey) {
+  const target = getBody(targetKey);
+  const current = BODIES.find(b => b.isCenter);
+  if (!target || !current || target === current) return;
+
+  const tempSlot = current.slot;
+  current.slot = target.slot;
+  target.slot = tempSlot;
+
+  current.isCenter = false;
+  target.isCenter = true;
+
+  const color = target.isSol ? '#14F195' : getEco(target.key).color;
+  triggerSwapFX(color);
+
+  if (target.isSol) {
+    showEcoBanner(null);
+    selId = null;
+  } else {
+    showEcoBanner(getEco(target.key));
+    selId = target.key;
+  }
+}
+
+function drawBody(body, t, list) {
+  P(body.wx, body.wy, body.wz);
+  if (PZ < 40) return;
+
+  const px = PX, py = PY, pz = PZ, ps = PS;
+
+  const distFromCenter = Math.hypot(body.wx, body.wy, body.wz);
+  const centerness = clamp(1 - distFromCenter / (ECO_RING.radius * 0.85), 0, 1);
+
+  const ringR = Math.max(70 * ps, 16);
+  const centerR = Math.max(200 * ps, 32);
+  const R = ringR + (centerR - ringR) * centerness;
+
+  if (distFromCenter > 30) {
+    const [tx, ty, tz] = getTargetPos(body);
+    const ddx = tx - body.wx, ddy = ty - body.wy, ddz = tz - body.wz;
+    const dlen = Math.hypot(ddx, ddy, ddz);
+    if (dlen > 10) {
+      const trailLen = Math.min(dlen * 1.6, 260);
+      const nx = ddx / dlen, ny = ddy / dlen, nz = ddz / dlen;
+      P(body.wx - nx * trailLen, body.wy - ny * trailLen, body.wz - nz * trailLen);
+      if (PZ >= 40) {
+        const ex = PX, ey = PY;
+        const trailCol = body.isSol ? '#14F195' : getEco(body.key).color;
+        const alpha = clamp(dlen / 220, 0, 1) * 0.6;
+        ctx.save();
+        const grad = ctx.createLinearGradient(px, py, ex, ey);
+        grad.addColorStop(0, trailCol);
+        grad.addColorStop(1, hexA(trailCol, 0));
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = Math.max(2, R * 0.32);
+        ctx.lineCap = 'round';
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  if (body.isSol) {
+    drawSolBody(body, px, py, pz, R, centerness, t, list);
+  } else {
+    drawEcoBody(body, getEco(body.key), px, py, pz, R, centerness, t, list);
+  }
+}
+
+function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
+  const hover = hoverId === 'eco-body-' + eco.key;
+  const act = centerness > 0.5;
+  const addPulse = clamp(1 - (RT - eco.lastCoinAddAt) / 0.7, 0, 1);
+  const Rs = R * (1 + addPulse * 0.12);
+
+  list.push({ z: pz, f: () => {
+    if (centerness > 0.3) {
+      const a = clamp((centerness - 0.3) / 0.5, 0, 1);
+      ctx.globalCompositeOperation = 'lighter';
+      const aura = ctx.createRadialGradient(px, py, Rs * 0.3, px, py, Rs * 2.8);
+      aura.addColorStop(0, hexA(eco.color, 0.55 * a));
+      aura.addColorStop(0.4, hexA(eco.color, 0.18 * a));
+      aura.addColorStop(1, hexA(eco.color, 0));
+      ctx.fillStyle = aura;
+      ctx.beginPath(); ctx.arc(px, py, Rs * 2.8, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    if (addPulse > 0.01) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.beginPath();
+      ctx.arc(px, py, Rs * 1.5, 0, TAU);
+      ctx.strokeStyle = hexA(eco.color, addPulse * 0.7);
+      ctx.lineWidth = 3 + addPulse * 4;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    drawBall(px, py, Rs, eco.color, eco.img, eco.symbol ? eco.symbol[0] : '?', '#fff');
+
+    if (hover) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, Rs * 1.3, 0, TAU);
+      ctx.strokeStyle = eco.color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.lineDashOffset = -t * 20;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (centerness > 0.4) {
+      const a = clamp((centerness - 0.4) / 0.4, 0, 1);
+      ctx.globalAlpha = a;
+      const nameSize = clamp(Rs * (0.20 + 0.04 * centerness), 12, 26);
+      ctx.font = `900 ${nameSize}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = eco.color;
+      ctx.shadowBlur = 16 + centerness * 16;
+      ctx.fillText(eco.name.toUpperCase(), px, py + Rs + 44);
+      ctx.shadowBlur = 0;
+
+      const n = eco.coins.length;
+      ctx.font = `700 12px ui-monospace,"SF Mono",Menlo,monospace`;
+      ctx.fillStyle = hexA(eco.color, 0.92);
+      ctx.fillText(n === 0 ? 'NO COINS YET' : n + ' COINS', px, py + Rs + 68);
+      ctx.globalAlpha = 1;
+    } else if (Rs > 8) {
+      ctx.font = `700 ${clamp(Rs * 0.4, 9, 13)}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(225,232,255,.85)';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 6;
+      ctx.fillText(eco.symbol, px, py + Rs + 14);
+      ctx.shadowBlur = 0;
+    }
+
+    hits.push({ id: 'eco-body-' + eco.key, x: px, y: py, r: Rs * 1.2, z: pz, bodyKey: eco.key });
+  }});
+
+  if (centerness > 0.5) {
+    const extrasAlpha = clamp((centerness - 0.5) / 0.3, 0, 1);
+    const ORB = Rs * 2.5;
+    const TILT = 0.24;
+    const n = eco.coins.length;
+
+    if (n > 0) {
+      // Energy beams from center to each coin — body-relative now
+      ctx.save();
+      ctx.globalAlpha = extrasAlpha * 0.35;
+      ctx.strokeStyle = hexA(eco.color, 0.6);
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 6]);
+      ctx.lineDashOffset = -t * 20;
+      for (let i = 0; i < n; i++) {
+        const a = i / n * TAU + t * 0.20;
+        P(body.wx + ORB * Math.cos(a),
+          body.wy + ORB * TILT * Math.sin(a),
+          body.wz + ORB * Math.sin(a));
+        if (PZ < 40) continue;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(PX, PY);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      for (let i = 0; i < n; i++) {
+        const coin = eco.coins[i];
+        const a = i / n * TAU + t * 0.20;
+        const pulseScale = 1 + Math.sin(t * 2 + i * 1.5) * 0.06;
+        // ← FIX: coins orbit the BODY, not world origin
+        P(body.wx + ORB * Math.cos(a),
+          body.wy + ORB * TILT * Math.sin(a),
+          body.wz + ORB * Math.sin(a));
+        if (PZ < 40) continue;
+        const cx = PX, cy = PY, cz = PZ;
+        const cr = Math.max(16, Rs * 0.18) * pulseScale;
+
+        if (!coin.img) {
+          coin.img = new Image();
+          coin.img.src = coin.logo_url || coinFallbackSvg(coin.symbol, coin.color || eco.color);
+        }
+
+        list.push({ z: cz, f: () => {
+          ctx.globalAlpha = extrasAlpha;
+          drawBall(cx, cy, cr, coin.color || eco.color, coin.img, coin.symbol ? coin.symbol[0] : '?', '#fff');
+          if (hoverId === 'coin-' + (coin.address || coin.symbol)) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, cr * 1.4, 0, TAU);
+            ctx.strokeStyle = eco.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.lineDashOffset = -t * 20;
+            ctx.stroke();
+            ctx.restore();
+          }
+          ctx.font = `700 12px system-ui`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillStyle = '#fff';
+          ctx.shadowColor = '#000';
+          ctx.shadowBlur = 6;
+          ctx.fillText(coin.symbol || '?', cx, cy + cr + 16);
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+          hits.push({
+            id: 'coin-' + (coin.address || coin.symbol),
+            x: cx, y: cy, r: cr * 1.35, z: cz,
+            ecoCoin: { eco: eco.key, coin }
+          });
+        }});
+      }
+    } else {
+      const slots = 6;
+      for (let i = 0; i < slots; i++) {
+        const a = i / slots * TAU + t * 0.08;
+        P(body.wx + ORB * Math.cos(a),
+          body.wy + ORB * TILT * Math.sin(a),
+          body.wz + ORB * Math.sin(a));
+        if (PZ < 40) continue;
+        const cx = PX, cy = PY, cz = PZ;
+        list.push({ z: cz, f: () => {
+          ctx.globalAlpha = extrasAlpha * 0.7;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
+          ctx.fillStyle = hexA(eco.color, 0.08);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
+          ctx.strokeStyle = hexA(eco.color, 0.45);
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 6]);
+          ctx.stroke();
+          ctx.restore();
+          ctx.globalAlpha = 1;
+        }});
+      }
+    }
+  }
+}
+
+function drawEcoRing(t) {
+  if (!ECO_RING.radius) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,.07)';
+  ctx.lineWidth = 1.3;
+  ctx.setLineDash([4, 10]);
+  ctx.lineDashOffset = -t * 10;
+  ctx.beginPath();
+  let pen = false;
+  for (let k = 0; k <= 120; k++) {
+    const a = k / 120 * TAU;
+    P(ECO_RING.radius * Math.cos(a), ECO_RING.elevation, ECO_RING.radius * Math.sin(a));
+    if (PZ < 40) { pen = false; continue; }
+    if (pen) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); pen = true; }
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/* ═══ Electric glow constellation lines ═══ */
+function drawConstellationLines(t) {
+  const ringBodies = BODIES.filter(b => !b.isCenter);
+  if (ringBodies.length < 2) return;
+
+  const pulse = 0.5 + 0.5 * Math.sin(t * 1.5);
+  const baseAlpha = 0.14 + pulse * 0.10;
+
+  ctx.save();
+  ctx.lineCap = 'round';
+
+  for (let i = 0; i < ringBodies.length; i++) {
+    const b1 = ringBodies[i];
+    const b2 = ringBodies[(i + 1) % ringBodies.length];
+
+    P(b1.wx, b1.wy, b1.wz);
+    if (PZ < 40) continue;
+    const x1 = PX, y1 = PY;
+
+    P(b2.wx, b2.wy, b2.wz);
+    if (PZ < 40) continue;
+    const x2 = PX, y2 = PY;
+
+    // Soft outer glow — electric blue-cyan
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = 'rgba(120, 200, 255, 0.85)';
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = `rgba(120, 200, 255, ${baseAlpha * 0.55})`;
+    ctx.lineWidth = 4;
+    ctx.setLineDash([6, 12]);
+    ctx.lineDashOffset = -t * 10;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Mid halo
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = `rgba(160, 220, 255, ${baseAlpha * 0.9})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 9]);
+    ctx.lineDashOffset = -t * 16;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Bright thin core — offset dashes so it flickers against the halo
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(200, 240, 255, 0.95)';
+    ctx.strokeStyle = `rgba(220, 245, 255, ${baseAlpha * 1.1})`;
+    ctx.lineWidth = 0.9;
+    ctx.setLineDash([2, 18]);
+    ctx.lineDashOffset = -t * 22;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  ctx.shadowBlur = 0;
+  ctx.setLineDash([]);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+}
+
+function onEcoCoinClick(ecoKey, coin) {
+  const eco = getEco(ecoKey);
+  const url = coin.dexscreener ||
+    (coin.address ? `https://dexscreener.com/${eco.chainId}/${coin.address}` : null);
+  if (url) {
+    showToast(`${coin.symbol || '?'} ↗ DexScreener`);
+    window.open(url, '_blank', 'noopener');
+  } else {
+    showToast(`${coin.symbol || '?'} — no address`);
+  }
+}
+
+function showEcoBanner(eco) {
+  const b = $('ecoBanner');
+  if (!b) return;
+  if (!eco) { b.classList.remove('show'); return; }
+  b.style.setProperty('--eco-color', eco.color);
+  $('ecoIc').textContent = eco.symbol;
+  $('ecoName').textContent = eco.name;
+  $('ecoCount').textContent = eco.coins.length + ' COINS';
+  b.classList.add('show');
+}
+
+$('ecoClose').onclick = () => {
+  const current = BODIES.find(b => b.isCenter);
+  if (current && !current.isSol) swapCenterTo('sol');
+};
+
+/* ─── Add Coin Modal ─── */
+let addCoinEcoKey = null;
+const addCoinModal = $('addCoinModal');
+const addCoinInput = $('addCoinInput');
+const addCoinBtn = $('addCoinBtn');
+const addCoinTitle = $('addCoinTitle');
+const addCoinDesc = $('addCoinDesc');
+
+function openAddCoin(ecoKey) {
+  const eco = getEco(ecoKey);
+  if (!eco) return;
+  addCoinEcoKey = ecoKey;
+  addCoinTitle.textContent = `Add ${eco.name} Coin`;
+  addCoinTitle.style.color = eco.color;
+  addCoinDesc.textContent = `Only ${eco.name} contracts accepted (${eco.chainId}).`;
+  addCoinDesc.style.color = hexA(eco.color, 0.85);
+  addCoinInput.value = '';
+  addCoinInput.placeholder = ecoKey === 'eth' || ecoKey === 'bnb' ? '0x…' : 'Contract address…';
+  addCoinModal.classList.add('open');
+  setTimeout(() => addCoinInput.focus(), 80);
+}
+
+function closeAddCoin() {
+  addCoinModal.classList.remove('open');
+  addCoinEcoKey = null;
+}
+
+$('addCoinCloseBtn').onclick = closeAddCoin;
+addCoinModal.onclick = (e) => { if (e.target === addCoinModal) closeAddCoin(); };
+
+$('ecoAddBtn').onclick = () => {
+  const current = BODIES.find(b => b.isCenter);
+  if (!current || current.isSol) return;
+  openAddCoin(current.key);
+};
+
+async function addCoinForEco(ecoKey, address) {
+  const eco = getEco(ecoKey);
+  const trimmed = address.trim();
+  if (trimmed.length < 10) return { error: 'Invalid address' };
+
+  if (eco.coins.find(c => c.address && c.address.toLowerCase() === trimmed.toLowerCase())) {
+    return { error: 'Already added' };
+  }
+
+  addCoinBtn.disabled = true;
+  addCoinBtn.textContent = 'CHECKING…';
+  try {
+    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${trimmed}`);
+    if (!res.ok) throw new Error('Network error');
+    const json = await res.json();
+    const pairs = (json.pairs || []).filter(p => p.chainId === eco.chainId);
+    if (!pairs.length) return { error: `Not a ${eco.name} token — no pairs on ${eco.chainId}` };
+
+    pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+    const pair = pairs[0];
+
+    const coin = {
+      symbol: pair.baseToken?.symbol || '?',
+      name: pair.baseToken?.name || 'Unknown',
+      address: pair.baseToken?.address || trimmed,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      logo_url: pair.info?.imageUrl || ''
+    };
+    eco.coins.push(coin);
+    return { coin };
+  } catch (e) {
+    return { error: e.message || 'Failed to validate' };
+  } finally {
+    addCoinBtn.disabled = false;
+    addCoinBtn.textContent = 'Add Coin';
+  }
+}
+
+addCoinBtn.onclick = async () => {
+  if (!addCoinEcoKey) return;
+  const address = addCoinInput.value.trim();
+  if (!address) { showToast('Enter an address', true); return; }
+
+  const result = await addCoinForEco(addCoinEcoKey, address);
+  if (result.error) {
+    showToast(result.error, true);
+    return;
+  }
+
+  const eco = getEco(addCoinEcoKey);
+  showToast(`${result.coin.symbol} added to ${eco.name} ✓`);
+  triggerCoinAddFX(eco);
+  showEcoBanner(eco);
+  closeAddCoin();
+};
+
+addCoinInput.onkeydown = e => { if (e.key === 'Enter') addCoinBtn.click(); };
 
 /* ═══════════════════════════════════════════════════════════════
    7. ORBIT 3D ENGINE
@@ -1152,11 +1373,8 @@ for (let i = 0; i < 640; i++) {
 const DUST = [];
 for (let i = 0; i < 220; i++) {
   DUST.push({
-    x: (Math.random() - 0.5) * 4200,
-    y: (Math.random() - 0.5) * 2200,
-    z: (Math.random() - 0.5) * 4200,
-    s: Math.random() * 1.4 + 0.4,
-    p: Math.random() * TAU
+    x: (Math.random() - 0.5) * 4200, y: (Math.random() - 0.5) * 2200, z: (Math.random() - 0.5) * 4200,
+    s: Math.random() * 1.4 + 0.4, p: Math.random() * TAU
   });
 }
 
@@ -1176,10 +1394,8 @@ function buildNebula() {
   for (const b of blobs) {
     const R = Math.max(w, h) * b[2];
     const g = x.createRadialGradient(b[0] * w, b[1] * h, 0, b[0] * w, b[1] * h, R);
-    g.addColorStop(0, b[3]);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    x.globalAlpha = b[4];
-    x.fillStyle = g;
+    g.addColorStop(0, b[3]); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.globalAlpha = b[4]; x.fillStyle = g;
     x.fillRect(0, 0, w, h);
   }
 }
@@ -1210,18 +1426,12 @@ function hyd(d) {
 }
 
 async function syncAll() {
-  const { data: rooms, error } = await sb
-    .from('orbit_communities')
-    .select('*')
-    .neq('id', GENERAL_ROOM);
+  const { data: rooms, error } = await sb.from('orbit_communities').select('*').neq('id', GENERAL_ROOM);
   if (error) throw error;
-
   const currentIds = new Set((rooms || []).map(r => r.id));
   Object.keys(HY).forEach(k => { if (!currentIds.has(k)) delete HY[k]; });
-
   ALL = (rooms || []).map(r => hyd({
-    id: r.id, name: r.name, tag: r.tagline,
-    color: r.color, emoji: r.emoji,
+    id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji,
     members: 1, ca: r.ca, logo_url: r.logo_url
   }));
   byId = {};
@@ -1234,14 +1444,9 @@ function laneDef(i) {
   const inc = (i % 2 ? -1 : 1) * (0.06 + (Math.sin(i * 78.233) * 0.5 + 0.5) * 0.24);
   const node = i * 2.399963;
   return {
-    idx: i, r, e,
-    b: Math.sqrt(1 - e * e),
-    inc, node,
-    ci: Math.cos(inc), si: Math.sin(inc),
-    cn: Math.cos(node), sn: Math.sin(node),
-    w: 0.34 * Math.pow(250 / r, 1.5),
-    dir: i % 2 ? -1 : 1,
-    members: []
+    idx: i, r, e, b: Math.sqrt(1 - e * e), inc, node,
+    ci: Math.cos(inc), si: Math.sin(inc), cn: Math.cos(node), sn: Math.sin(node),
+    w: 0.34 * Math.pow(250 / r, 1.5), dir: i % 2 ? -1 : 1, members: []
   };
 }
 function lanePt(L, E, o) {
@@ -1257,25 +1462,19 @@ function kep(M, e, it) {
   for (let i = 0; i < (it || 4); i++) E = M + e * Math.sin(E);
   return E;
 }
-function angd(a, b) {
-  return ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI;
-}
+function angd(a, b) { return ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
 function g3() { return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; }
 
 function mkBelt(r, w, th, n, dir) {
   const B = {
-    r, n, dir,
-    w: 0.34 * Math.pow(250 / r, 1.5) * 0.8,
-    cx: new Float32Array(n), sx: new Float32Array(n),
-    rr: new Float32Array(n), yy: new Float32Array(n),
+    r, n, dir, w: 0.34 * Math.pow(250 / r, 1.5) * 0.8,
+    cx: new Float32Array(n), sx: new Float32Array(n), rr: new Float32Array(n), yy: new Float32Array(n),
     bx: new Float32Array(n), by: new Float32Array(n), bz: new Float32Array(n)
   };
   for (let i = 0; i < n; i++) {
     const a = Math.random() * TAU;
-    B.cx[i] = Math.cos(a);
-    B.sx[i] = Math.sin(a);
-    B.rr[i] = r + g3() * w;
-    B.yy[i] = g3() * th;
+    B.cx[i] = Math.cos(a); B.sx[i] = Math.sin(a);
+    B.rr[i] = r + g3() * w; B.yy[i] = g3() * th;
   }
   return B;
 }
@@ -1295,8 +1494,7 @@ function layout() {
       c.lane = L;
       c.toff = k / L.members.length * TAU + L.idx * 1.7;
       if (c.off === undefined) c.off = c.toff;
-      const base = clamp(30 + Math.log10((c.members || 1) + 10) * 6, 36, 54);
-      c.baseSize = base;
+      c.baseSize = clamp(30 + Math.log10((c.members || 1) + 10) * 6, 36, 54);
     });
   }
   outerR = LANES.length ? LANES[LANES.length - 1].r * (1 + 0.12) : 250;
@@ -1306,17 +1504,15 @@ function layout() {
   if (LANES.length >= 6) BELTS.push(mkBelt(250 + 3.5 * 92, 16, 8, 900, 1));
   BELTS.push(mkBelt(outerR + 80, 26, 12, 1300, -1));
 
-  layoutSol();
+  layoutEcosystems();
 }
 
 const defDist = () => clamp((outerR + 110) * 2.0, 1250, 7500);
 
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = innerWidth;
-  H = innerHeight;
-  cv.width = W * DPR;
-  cv.height = H * DPR;
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   F = Math.min(W, H) * 0.95;
   if (W > H) F = Math.min(F, H * 0.95);
@@ -1340,18 +1536,32 @@ function burst(c) {
     });
   }
 }
-function easeOutBack(x) {
-  const c1 = 1.70158, c3 = c1 + 1;
-  return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
-}
+function easeOutBack(x) { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); }
 
 function drawStarsBg(t) {
+  const scx = W / 2, scy = cenY;
   for (const s of STARS) {
     P(s.x * 9000, s.y * 9000, s.z * 9000, true);
-    if (PZ < 200 || PX < -5 || PX > W + 5 || PY < -5 || PY > H + 5) continue;
-    ctx.globalAlpha = 0.4 + 0.4 * Math.sin(t * 1.4 + s.p);
-    ctx.fillStyle = s.c;
-    ctx.fillRect(PX, PY, s.s, s.s);
+    if (PZ < 200 || PX < -60 || PX > W + 60 || PY < -60 || PY > H + 60) continue;
+    const baseAlpha = 0.4 + 0.4 * Math.sin(t * 1.4 + s.p);
+    if (warp > 0.02) {
+      const dx = PX - scx, dy = PY - scy;
+      const len = Math.hypot(dx, dy) || 1;
+      const stretch = warp * (60 + s.s * 30) * Math.min(1, len / 180);
+      const ax = PX - dx / len * stretch;
+      const ay = PY - dy / len * stretch;
+      ctx.globalAlpha = Math.min(1, baseAlpha + warp * 0.5);
+      ctx.strokeStyle = s.c;
+      ctx.lineWidth = Math.max(0.9, s.s * 0.9);
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(PX, PY);
+      ctx.stroke();
+    } else {
+      ctx.globalAlpha = baseAlpha;
+      ctx.fillStyle = s.c;
+      ctx.fillRect(PX, PY, s.s, s.s);
+    }
   }
   for (const d of DUST) {
     P(d.x, d.y, d.z, true);
@@ -1401,13 +1611,10 @@ function drawRings() {
     ctx.strokeStyle = col;
     ctx.globalAlpha = al;
     if (!isHover) {
-      ctx.setLineDash([2, 8]);
-      ctx.lineDashOffset = -RT * 15;
+      ctx.setLineDash([2, 8]); ctx.lineDashOffset = -RT * 15;
     } else {
-      ctx.setLineDash([8, 8]);
-      ctx.lineDashOffset = -RT * 30;
-      ctx.shadowColor = col;
-      ctx.shadowBlur = 15;
+      ctx.setLineDash([8, 8]); ctx.lineDashOffset = -RT * 30;
+      ctx.shadowColor = col; ctx.shadowBlur = 15;
     }
     ctx.beginPath();
     let pen = false;
@@ -1419,8 +1626,7 @@ function drawRings() {
       else { ctx.moveTo(PX, PY); pen = true; }
     }
     ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.setLineDash([]);
+    ctx.shadowBlur = 0; ctx.setLineDash([]);
   }
   ctx.globalAlpha = 1;
 }
@@ -1449,90 +1655,12 @@ function drawWaves() {
   ctx.globalAlpha = 1;
 }
 
-function drawStar(p, t) {
-  const R = Math.max(60 * p.s, 24);
-  const act = (selId === 'core' || hoverId === 'core');
-  const pulse = act ? 1 + Math.sin(t * 5) * 0.04 : 1;
-  const glowRadius = (act ? R * 4.5 : R * 3.2) * pulse;
-  const glowAlpha = act ? 0.95 : 0.6;
-
-  ctx.globalCompositeOperation = 'lighter';
-  let g = ctx.createRadialGradient(p.x, p.y, R * 0.1, p.x, p.y, glowRadius);
-  g.addColorStop(0, `rgba(255,240,180,${glowAlpha})`);
-  g.addColorStop(0.3, `rgba(255,160,60,${act ? 0.6 : 0.28})`);
-  g.addColorStop(1, 'rgba(255,100,30,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, glowRadius, 0, TAU);
-  ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
-
-  ctx.save();
-  ctx.translate(p.x, p.y);
-  for (let layer = 0; layer < 2; layer++) {
-    ctx.save();
-    ctx.rotate((layer ? -1 : 1) * t * (act ? 0.2 : 0.08));
-    const n = layer ? 12 : 16;
-    for (let i = 0; i < n; i++) {
-      ctx.rotate(TAU / n);
-      const rayBase = act ? (layer ? 1.8 : 1.4) : (layer ? 1.3 : 1.0);
-      const L = R * (rayBase + 0.15 * Math.sin(t * 3 + i * 2.5));
-      const gg = ctx.createLinearGradient(0, 0, L, 0);
-      const a = act ? 0.8 : 0.32;
-      gg.addColorStop(0, layer ? `rgba(255,200,100,${a})` : `rgba(255,255,220,${a})`);
-      gg.addColorStop(0.25, layer ? `rgba(255,140,40,${a * 0.6})` : `rgba(255,200,100,${a * 0.6})`);
-      gg.addColorStop(1, 'rgba(255,100,30,0)');
-      ctx.fillStyle = gg;
-      ctx.beginPath();
-      const thick = R * (layer ? 0.04 : 0.07);
-      ctx.moveTo(0, -thick);
-      ctx.lineTo(L, 0);
-      ctx.lineTo(0, thick);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-  ctx.restore();
-
-  g = ctx.createRadialGradient(p.x - R * 0.15, p.y - R * 0.15, R * 0.05, p.x, p.y, R * pulse);
-  g.addColorStop(0, '#ffffff');
-  g.addColorStop(0.4, act ? '#fff0b0' : '#ffd36b');
-  g.addColorStop(1, act ? '#ff8a2a' : '#e6731b');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, R * pulse, 0, TAU);
-  ctx.fill();
-
-  const q = R * 0.4 * pulse;
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.beginPath();
-  ctx.moveTo(p.x, p.y - q);
-  ctx.quadraticCurveTo(p.x, p.y, p.x + q, p.y);
-  ctx.quadraticCurveTo(p.x, p.y, p.x, p.y + q);
-  ctx.quadraticCurveTo(p.x, p.y, p.x - q, p.y);
-  ctx.quadraticCurveTo(p.x, p.y, p.x, p.y - q);
-  ctx.fill();
-
-  ctx.font = `900 ${clamp(R * 0.24, 10, 14)}px system-ui`;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = act ? '#fff' : 'rgba(255,225,170,.9)';
-  ctx.shadowColor = act ? 'rgba(255,170,80,1)' : '#000';
-  ctx.shadowBlur = act ? 20 : 6;
-  ctx.fillText('GENERAL CHAT', p.x, p.y + R + 18);
-  ctx.shadowBlur = 0;
-
-  hits.push({ id: 'core', x: p.x, y: p.y, r: R, z: p.z });
-}
-
 function drawMoon(m) {
   const r = m.r;
   const g = ctx.createRadialGradient(m.x - r * 0.3, m.y - r * 0.3, r * 0.1, m.x, m.y, r);
-  g.addColorStop(0, '#f4f6ff');
-  g.addColorStop(1, '#6a7096');
+  g.addColorStop(0, '#f4f6ff'); g.addColorStop(1, '#6a7096');
   ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(m.x, m.y, r, 0, TAU);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, TAU); ctx.fill();
 }
 
 const TX = new Float32Array(40), TY = new Float32Array(40);
@@ -1551,13 +1679,11 @@ function drawPlanet(c, sp) {
     lanePt(L, kep(c.M - L.dir * k * 0.05, L.e), LP);
     P(LP[0], LP[1], LP[2]);
     if (PZ < 30) break;
-    TX[k] = PX; TY[k] = PY;
-    nt = k;
+    TX[k] = PX; TY[k] = PY; nt = k;
   }
   if (nt > 1) {
     ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = c.color;
+    ctx.lineCap = 'round'; ctx.strokeStyle = c.color;
     for (let g = 0; g < 7; g++) {
       const a = g * 5, b = Math.min(nt, (g + 1) * 5);
       if (a >= nt) break;
@@ -1590,60 +1716,43 @@ function drawPlanet(c, sp) {
 
   ctx.globalCompositeOperation = 'lighter';
   let g = ctx.createRadialGradient(p.x, p.y, r * 0.8, p.x, p.y, r * 1.35);
-  g.addColorStop(0, c.color + '30');
-  g.addColorStop(1, c.color + '00');
+  g.addColorStop(0, c.color + '30'); g.addColorStop(1, c.color + '00');
   ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, r * 1.35, 0, TAU);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.35, 0, TAU); ctx.fill();
 
   g = ctx.createRadialGradient(p.x, p.y, r * 0.85, p.x, p.y, r * 1.8);
-  g.addColorStop(0, c.color + '55');
-  g.addColorStop(1, c.color + '00');
+  g.addColorStop(0, c.color + '55'); g.addColorStop(1, c.color + '00');
   ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, r * 1.8, 0, TAU);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.8, 0, TAU); ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
 
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, r, 0, TAU);
-  ctx.clip();
-
+  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.clip();
   if (c.img.complete && c.img.naturalWidth > 0) {
     ctx.drawImage(c.img, p.x - r, p.y - r, r * 2, r * 2);
   } else {
     ctx.fillStyle = c.color;
     ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
     ctx.font = `bold ${r}px system-ui`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
     ctx.fillText(initials(c.name), p.x, p.y);
   }
-
   g = ctx.createLinearGradient(p.x + lx * r, p.y + ly * r, p.x - lx * r, p.y - ly * r);
   g.addColorStop(0, 'rgba(0,0,12,0)');
   g.addColorStop(0.45, 'rgba(0,0,12,.18)');
   g.addColorStop(1, 'rgba(0,0,12,.88)');
   ctx.fillStyle = g;
   ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-
   g = ctx.createRadialGradient(p.x + lx * r * 0.45, p.y + ly * r * 0.45, 0, p.x + lx * r * 0.45, p.y + ly * r * 0.45, r * 0.6);
   g.addColorStop(0, 'rgba(255,255,255,.35)');
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g;
   ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-
   ctx.restore();
 
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = c.color;
-  ctx.globalAlpha = 0.8;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, r, 0, TAU);
-  ctx.stroke();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = c.color; ctx.globalAlpha = 0.8;
+  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.stroke();
   ctx.globalAlpha = 1;
 
   for (const m of moons) if (m.z <= p.z) drawMoon(m);
@@ -1652,22 +1761,16 @@ function drawPlanet(c, sp) {
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = (1 - prog) * 0.8;
     ctx.fillStyle = c.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, r * 2.5, 0, TAU);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.5, 0, TAU); ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
   }
 
   if (act || hov) {
     ctx.save();
-    ctx.setLineDash([6, 6]);
-    ctx.lineDashOffset = -RT * 20;
-    ctx.strokeStyle = act ? '#fff' : c.color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, r * 1.45, 0, TAU);
-    ctx.stroke();
+    ctx.setLineDash([6, 6]); ctx.lineDashOffset = -RT * 20;
+    ctx.strokeStyle = act ? '#fff' : c.color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.45, 0, TAU); ctx.stroke();
     ctx.restore();
   }
 
@@ -1675,8 +1778,7 @@ function drawPlanet(c, sp) {
     ctx.font = `700 ${clamp(r * 0.42, 11, 16)}px system-ui`;
     ctx.textAlign = 'center';
     ctx.fillStyle = act || hov ? '#fff' : 'rgba(225,232,255,.9)';
-    ctx.shadowColor = '#000';
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 8;
     ctx.fillText(c.name, p.x, p.y + r + (act ? 22 : 18));
     ctx.shadowBlur = 0;
   }
@@ -1710,10 +1812,21 @@ function frame(now) {
   RT = now / 1000;
   if (!paused) T += dt;
 
-  caCam.cy = Math.cos(cam.yaw);
-  caCam.sy = Math.sin(cam.yaw);
-  caCam.cp = Math.cos(cam.pitch);
-  caCam.sp = Math.sin(cam.pitch);
+  warp = Math.max(0, warp - dt * 1.8);
+  shakeAmount = Math.max(0, shakeAmount - dt * 3.2);
+  coloredFlash = Math.max(0, coloredFlash - dt * 2.2);
+  ringRotation += dt * 0.02;
+
+  caCam.cy = Math.cos(cam.yaw); caCam.sy = Math.sin(cam.yaw);
+  caCam.cp = Math.cos(cam.pitch); caCam.sp = Math.sin(cam.pitch);
+
+  const bodyK = 1 - Math.exp(-dt * 3.2);
+  for (const body of BODIES) {
+    const [tx, ty, tz] = getTargetPos(body);
+    body.wx += (tx - body.wx) * bodyK;
+    body.wy += (ty - body.wy) * bodyK;
+    body.wz += (tz - body.wz) * bodyK;
+  }
 
   for (const c of ALL) {
     const L = c.lane;
@@ -1724,7 +1837,13 @@ function frame(now) {
     if (c.pend && RT >= c.born) { c.pend = false; burst(c); }
   }
 
-  const tgt = (selId && selId !== 'core' && byId[selId]) ? byId[selId].pos : [0, 0, 0];
+  const ecoCenter = BODIES.find(b => !b.isSol && b.isCenter);
+
+  let tgt = [0, 0, 0];
+  if (selId && selId !== 'core' && !ecoCenter && byId[selId]) {
+    tgt = byId[selId].pos;
+  }
+
   const k = 1 - Math.exp(-dt * 5);
   cam.tx += (tgt[0] - cam.tx) * k;
   cam.ty += (tgt[1] - cam.ty) * k;
@@ -1732,10 +1851,19 @@ function frame(now) {
   cam.dist += (want.dist - cam.dist) * k;
   cenY += (wantCenY - cenY) * k;
 
-  if (spin && !dragging && now - lastInput > 2500) cam.yaw += dt * 0.1;
+  if (spin && !dragging && now - lastInput > 2500 && !ecoCenter) cam.yaw += dt * 0.1;
 
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.clearRect(0, 0, W, H);
+
+  if (shakeAmount > 0.01) {
+    ctx.fillStyle = '#03040a';
+    ctx.fillRect(-60, -60, W + 120, H + 120);
+    const sx = (Math.random() - 0.5) * shakeAmount * 14;
+    const sy = (Math.random() - 0.5) * shakeAmount * 14;
+    ctx.translate(sx, sy);
+  }
+
   hits.length = 0;
 
   if (neb) {
@@ -1744,36 +1872,104 @@ function frame(now) {
     ctx.globalAlpha = 1;
   }
 
+  const savedF = F;
+  F = F * (1 + warp * 0.09);
+
   drawStarsBg(now / 1000);
 
   P(0, 0, 0);
   const sp = { x: PX, y: PY, z: PZ, s: PS };
 
-  projBelts();
-  drawBelts(true, sp.z);
-  drawRings();
-  drawWaves();
+  const list = [];
 
-  const list = [{ z: sp.z, f: () => drawStar(sp, now / 1000) }];
-  for (const c of ALL) {
-    if (!c.lane) continue;
-    P(c.pos[0], c.pos[1], c.pos[2]);
-    if (PZ < 40) continue;
-    c.pj.x = PX; c.pj.y = PY; c.pj.z = PZ; c.pj.s = PS;
-    list.push({ z: PZ, f: () => drawPlanet(c, sp) });
+  const solBody = BODIES.find(b => b.isSol);
+  if (solBody.isCenter) {
+    projBelts();
+    drawBelts(true, sp.z);
+    drawRings();
+    drawWaves();
+    for (const c of ALL) {
+      if (!c.lane) continue;
+      P(c.pos[0], c.pos[1], c.pos[2]);
+      if (PZ < 40) continue;
+      c.pj.x = PX; c.pj.y = PY; c.pj.z = PZ; c.pj.s = PS;
+      list.push({ z: PZ, f: () => drawPlanet(c, sp) });
+    }
   }
 
-  drawSolSystem(now / 1000, list);
+  drawEcoRing(now / 1000);
+  drawConstellationLines(now / 1000);
+
+  for (const body of BODIES) {
+    drawBody(body, now / 1000, list);
+  }
 
   list.sort((a, b) => b.z - a.z);
   for (const o of list) o.f();
 
-  if (SOL_CFG.active && solState.pz > 40) {
-    drawSolHUD(solState.hudX, solState.hudY);
+  if (solBody.isCenter) drawBelts(false, sp.z);
+  drawFX(dt);
+
+  F = savedF;
+
+  if (ecoCenter) {
+    const eco = getEco(ecoCenter.key);
+    ctx.save();
+    const grad = ctx.createRadialGradient(W / 2, cenY, 120, W / 2, cenY, Math.max(W, H) * 0.78);
+    grad.addColorStop(0, hexA(eco.color, 0));
+    grad.addColorStop(1, hexA(eco.color, 0.16));
+    ctx.fillStyle = grad;
+    ctx.fillRect(-60, -60, W + 120, H + 120);
+    ctx.restore();
   }
 
-  drawBelts(false, sp.z);
-  drawFX(dt);
+  for (let i = shocks.length - 1; i >= 0; i--) {
+    const s = shocks[i];
+    const age = RT - s.t0 - (s.delay || 0);
+    if (age < 0) continue;
+    if (age > (s.duration || 1.3)) { shocks.splice(i, 1); continue; }
+    const R = age * (s.speed || 900);
+    const a = 1 - age / (s.duration || 1.3);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = s.color;
+    ctx.globalAlpha = a * 0.55;
+    ctx.lineWidth = (s.width || 4) * a;
+    ctx.beginPath();
+    ctx.arc(W / 2, cenY, R, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = swapParticles.length - 1; i >= 0; i--) {
+    const p = swapParticles[i];
+    p.age += dt;
+    if (p.age > p.life) { swapParticles.splice(i, 1); continue; }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.96;
+    p.vy *= 0.96;
+    const a = 1 - p.age / p.life;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  if (coloredFlash > 0.01) {
+    const grad = ctx.createRadialGradient(W / 2, cenY, 0, W / 2, cenY, Math.max(W, H) * 0.72);
+    grad.addColorStop(0, hexA(coloredFlashColor, coloredFlash * 0.35));
+    grad.addColorStop(1, hexA(coloredFlashColor, 0));
+    ctx.fillStyle = grad;
+    ctx.fillRect(-60, -60, W + 120, H + 120);
+  }
+
+  if (warp > 0.02) {
+    ctx.fillStyle = `rgba(255,255,255,${warp * warp * 0.22})`;
+    ctx.fillRect(-60, -60, W + 120, H + 120);
+  }
 
   requestAnimationFrame(frame);
 }
@@ -1808,8 +2004,7 @@ cv.addEventListener('pointermove', e => {
     return;
   }
   const dx = e.clientX - p.x, dy = e.clientY - p.y;
-  p.x = e.clientX;
-  p.y = e.clientY;
+  p.x = e.clientX; p.y = e.clientY;
   lastInput = performance.now();
   if (ptrs.size === 1) {
     cam.yaw += dx * 0.006;
@@ -1832,6 +2027,11 @@ function up(e) {
       const h = hitAt(e.clientX, e.clientY);
       if (h && h.sol) {
         onSolBodyClick(h.id);
+      } else if (h && h.ecoCoin) {
+        onEcoCoinClick(h.ecoCoin.eco, h.ecoCoin.coin);
+      } else if (h && h.bodyKey) {
+        const cur = BODIES.find(b => b.isCenter);
+        if (cur && cur.key !== h.bodyKey) swapCenterTo(h.bodyKey);
       } else {
         select(h ? h.id : null);
       }
@@ -1879,8 +2079,7 @@ function buildDock() {
   );
   ALL.forEach(c => {
     dock.append(h('button', { class: 'chip', onclick: () => select(c.id) },
-      h('img', { src: c.src, alt: c.name }),
-      c.name
+      h('img', { src: c.src, alt: c.name }), c.name
     ));
   });
 }
@@ -1922,8 +2121,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
   const actions = [];
   if (!isGeneral && ca) {
     actions.push(h('button', {
-      class: 'icon-btn',
-      title: 'Copy token CA',
+      class: 'icon-btn', title: 'Copy token CA',
       onclick: () => navigator.clipboard.writeText(ca).then(
         () => showToast('Token CA copied 📋'),
         () => showToast('Failed to copy', true)
@@ -1932,8 +2130,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
   }
   if (isAdmin && !isGeneral) {
     actions.push(h('button', {
-      class: 'icon-btn danger',
-      title: 'Delete planet',
+      class: 'icon-btn danger', title: 'Delete planet',
       onclick: () => showConfirm('Delete this planet and all its messages? This cannot be undone.', async () => {
         const { error } = await sb.from('orbit_communities').delete().eq('id', roomId);
         if (error) showToast('Error deleting: ' + error.message, true);
@@ -1979,10 +2176,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
 
   const feed = h('div', { class: 'feed' }, h('div', { class: 'loading' }, 'Connecting…'));
   const feedWrap = h('div', { class: 'feed-wrap' }, feed);
-  const jumpBtn = h('button', {
-    class: 'jump-btn',
-    onclick: () => { feed.scrollTop = feed.scrollHeight; }
-  }, '↓');
+  const jumpBtn = h('button', { class: 'jump-btn', onclick: () => { feed.scrollTop = feed.scrollHeight; } }, '↓');
   feedWrap.append(jumpBtn);
 
   feed.addEventListener('scroll', () => {
@@ -2007,8 +2201,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
 
   const input = h('input', {
     placeholder: `Message #${roomName}…`,
-    maxlength: '200',
-    autocomplete: 'off'
+    maxlength: '200', autocomplete: 'off'
   });
   const charCount = h('span', { class: 'char-count' }, '0/200');
   input.addEventListener('input', () => {
@@ -2113,7 +2306,6 @@ async function openChat(roomId, roomName, roomColor, ca) {
       if (reqId !== chatReqId) return;
       if (currentRoomId !== roomId) return;
       if (!input.isConnected) return;
-
       console.warn('[ORBITS] balance check failed:', e.message);
       input.disabled = true;
       const short = e.message.length > 40 ? e.message.slice(0, 40) + '…' : e.message;
@@ -2126,9 +2318,18 @@ async function openChat(roomId, roomName, roomColor, ca) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   11. SELECTION
+   11. SELECTION — empty click no longer removes the eco banner
    ═══════════════════════════════════════════════════════════════ */
 function select(id) {
+  const eco = ECOSYSTEMS.find(e => e.key === id);
+  if (eco) {
+    const cur = BODIES.find(b => b.isCenter);
+    if (cur && cur.key !== id) swapCenterTo(id);
+    return;
+  }
+
+  // Empty click OR chat selection. Do NOT touch the eco banner.
+  // The banner persists while an eco is centered.
   selId = id;
   want.dist = id === 'core' ? 820 : id ? 400 : defDist();
   wantCenY = id ? H * 0.25 : H * 0.5;
@@ -2175,7 +2376,7 @@ $('confirmCloseBtn').onclick = closeConfirm;
 confirmModal.onclick = e => { if (e.target === confirmModal) closeConfirm(); };
 
 /* ═══════════════════════════════════════════════════════════════
-   13. NEW WORLD MODAL
+   13. NEW WORLD MODAL — auto-routes eco chain CAs to the right eco
    ═══════════════════════════════════════════════════════════════ */
 const modal = $('modal');
 const caInput = $('caInput');
@@ -2183,6 +2384,8 @@ const createBtn = $('createBtn');
 
 $('modalCloseBtn').onclick = () => { modal.classList.remove('open'); caInput.value = ''; };
 modal.onclick = e => { if (e.target === modal) { modal.classList.remove('open'); caInput.value = ''; } };
+
+const EVM_CHAIN_TO_ECO = { ethereum: 'eth', bsc: 'bnb', robinhood: 'rh' };
 
 createBtn.onclick = async () => {
   const ca = caInput.value.trim();
@@ -2197,6 +2400,38 @@ createBtn.onclick = async () => {
     const pairs = json.pairs || [];
     if (!pairs.length) throw new Error('Token not found on DexScreener');
 
+    // Route EVM-chain tokens to their eco instead of creating a chat planet
+    const ecoPair = pairs.find(p => EVM_CHAIN_TO_ECO[p.chainId]);
+    if (ecoPair) {
+      const ecoKey = EVM_CHAIN_TO_ECO[ecoPair.chainId];
+      const eco = getEco(ecoKey);
+      pairs.filter(p => p.chainId === ecoPair.chainId);
+      const sorted = pairs.filter(p => p.chainId === ecoPair.chainId)
+        .sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+      const best = sorted[0] || ecoPair;
+
+      if (eco.coins.find(c => c.address && c.address.toLowerCase() === (best.baseToken?.address || ca).toLowerCase())) {
+        throw new Error(`Already added to ${eco.name}`);
+      }
+
+      eco.coins.push({
+        symbol: best.baseToken?.symbol || '?',
+        name: best.baseToken?.name || 'Unknown',
+        address: best.baseToken?.address || ca,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        logo_url: best.info?.imageUrl || ''
+      });
+
+      triggerCoinAddFX(eco);
+      modal.classList.remove('open');
+      caInput.value = '';
+      showToast(`${best.baseToken?.symbol || 'Token'} added to ${eco.name} ✓`);
+      if (ecoKey !== selId) swapCenterTo(ecoKey);
+      showEcoBanner(eco);
+      return;
+    }
+
+    // Otherwise: normal chat-planet creation
     pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
     const pair = pairs[0];
 
@@ -2231,10 +2466,10 @@ async function refreshCommunities() {
   const oldDist = want.dist;
   const oldYaw = cam.yaw;
   const oldPitch = cam.pitch;
-
   try {
     await syncAll();
     layout();
+    initBodies();
     buildDock();
     want.dist = oldDist;
     cam.yaw = oldYaw;
@@ -2246,7 +2481,6 @@ async function refreshCommunities() {
 
 async function initApp() {
   if (!W) resize();
-
   initPresence();
 
   const temp = [
@@ -2257,6 +2491,7 @@ async function initApp() {
   ];
   ALL = temp.map(p => hyd(p));
   layout();
+  initBodies();
 
   cenY = wantCenY;
   want.dist = defDist();
@@ -2269,6 +2504,7 @@ async function initApp() {
   }
 
   layout();
+  initBodies();
   buildDock();
 
   setTimeout(() => document.body.classList.remove('booting'), 350);
