@@ -1047,7 +1047,8 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
     const showLabels = centerness > 0.45;
 
     if (n > 0) {
-      const ORB = Rs * (1.4 + 1.1 * centerness) * (1 + Math.min(n, 12) * 0.03);
+      // 1.6 minimum (vs 1.4) so coins clear the eco planet's hit circle (1.2 Rs)
+      const ORB = Rs * (1.6 + 0.9 * centerness) * (1 + Math.min(n, 12) * 0.03);
       const TILT = 0.22;
       const speed = 0.35;
 
@@ -1063,7 +1064,7 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
           body.wz + ORB * Math.sin(a));
         if (PZ < 40) continue;
         const cx = PX, cy = PY, cz = PZ;
-        const cr = Math.max(7, Rs * 0.16) * spawnScale;
+        const cr = Math.max(8, Rs * 0.17) * spawnScale;
 
         if (!coin.img) {
           coin.img = new Image();
@@ -1176,6 +1177,27 @@ function drawEcoRing(t) {
   ctx.restore();
 }
 
+/* ─── Open an eco-coin holder chat WITHOUT swapping the view back to Solana ─── */
+function openEcoChat(room, ecoKey) {
+  if (!room) return;
+
+  // If the coin's eco isn't the current center, swap to it first
+  if (ecoKey) {
+    const target = getBody(ecoKey);
+    const cur = BODIES.find(b => b.isCenter);
+    if (target && cur && target !== cur) {
+      swapCenterTo(ecoKey);        // closes sheet, animates eco → center
+    }
+  }
+
+  selId = room.id;
+  wantCenY = H * 0.25;
+  want.dist = Math.max(want.dist, 800);   // ensure zoomed enough
+  dock.classList.add('hide');
+  sheet.classList.add('open');
+  openChat(room.id, room.name, room.color, room.ca);
+}
+
 async function onEcoCoinClick(ecoKey, coin) {
   const eco = getEco(ecoKey);
   if (!eco || !coin) return;
@@ -1183,31 +1205,64 @@ async function onEcoCoinClick(ecoKey, coin) {
   const addr = String(coin.address || '').toLowerCase();
   if (!addr) { showToast('This coin has no contract address', true); return; }
 
-  // Already has a holder chat? Just open it.
+  // Already has a holder chat? Open it instantly on the eco view.
   const existing = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
-  if (existing) { select(existing.id); return; }
+  if (existing) { openEcoChat(existing, ecoKey); return; }
 
   if (coin._opening) return;
   coin._opening = true;
   showToast(`Opening ${coin.symbol || 'coin'} chat…`);
 
   try {
-    const { error } = await sb.from('orbit_communities').insert({
-      name: coin.name || coin.symbol || 'Token',
-      tagline: coin.symbol || '',
-      ca: coin.address,
-      logo_url: coin.logo_url || '',
-      color: coin.color || eco.color,
-      emoji: '🪙'
-    });
-    if (error) throw error;
+    const { data: inserted, error } = await sb.from('orbit_communities')
+      .insert({
+        name: coin.name || coin.symbol || 'Token',
+        tagline: coin.symbol || '',
+        ca: coin.address,
+        logo_url: coin.logo_url || '',
+        color: coin.color || eco.color,
+        emoji: '🪙'
+      })
+      .select()
+      .single();
 
-    await refreshCommunities();
+    if (error) {
+      // Race condition or real failure — try to recover via a full refresh
+      console.warn('[ORBITS] eco chat insert failed:', error.message);
+      await refreshCommunities();
+      const fallback = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
+      if (fallback) { openEcoChat(fallback, ecoKey); return; }
+      throw error;
+    }
 
-    const room = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
-    if (room) select(room.id);
-    else showToast('Chat created — tap the coin again', false);
+    if (inserted && inserted.id) {
+      // Hydrate locally so openEcoChat works IMMEDIATELY (no network round-trip)
+      const newRoom = HY[inserted.id] || hyd({
+        id: inserted.id,
+        name: inserted.name,
+        tag: inserted.tagline,
+        color: inserted.color,
+        emoji: inserted.emoji,
+        members: 1,
+        ca: inserted.ca,
+        logo_url: inserted.logo_url
+      });
+      if (!ALL.find(c => c.id === inserted.id)) ALL.push(newRoom);
+      byId[inserted.id] = newRoom;
+
+     openEcoChat(newRoom, ecoKey);                                // ← chat opens in ~100ms
+
+      refreshCommunities().catch(e =>
+        console.warn('[ORBITS] bg refresh failed:', e)
+      );
+    } else {
+      await refreshCommunities();
+      const room = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
+      if (room) openEcoChat(room, ecoKey);
+      else showToast('Chat created — refresh to see it', true);
+    }
   } catch (e) {
+    console.error('[ORBITS] Create eco chat failed:', e);
     showToast('Could not open chat: ' + (e.message || 'error'), true);
   } finally {
     coin._opening = false;
@@ -2017,14 +2072,15 @@ function hitAt(x, y) {
   for (const h of hits) {
     if (Math.hypot(h.x - x, h.y - y) <= h.r + 10) {
       if (h.bodyKey) {
-        // Prefer body hits (planets) over label/decoration hits.
         if (!bestBody || h.z < bestBody.z) bestBody = h;
       } else {
         if (!best || h.z < best.z) best = h;
       }
     }
   }
-  return bestBody || best;
+  // Whichever hit is closest to the camera wins (smaller z = drawn on top).
+  if (best && bestBody) return best.z < bestBody.z ? best : bestBody;
+  return best || bestBody;
 }
 function pd() {
   const a = [...ptrs.values()];
