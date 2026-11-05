@@ -790,6 +790,12 @@ let ringRotation = 0;
 function getEco(key) { return ECOSYSTEMS.find(e => e.key === key); }
 function getBody(key) { return BODIES.find(b => b.key === key); }
 
+// Which eco's coins are visible right now — null means Solana
+function currentEcoKey() {
+  const c = BODIES.find(b => b.isCenter);
+  return (c && !c.isSol) ? c.key : null;
+}
+
 function layoutEcosystems() {
   ECO_RING.radius = outerR * 1.55;
   ECO_RING.elevation = 0;
@@ -885,6 +891,10 @@ function swapCenterTo(targetKey) {
 
   current.isCenter = false;
   target.isCenter = true;
+
+  // Rebuild layout + dock so the new eco's planets show up
+  layout();
+  buildDock();
 
   // Recenter the new body — reset any offset left from a previous open chat
   wantCenY = H * 0.5;
@@ -1009,7 +1019,7 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
       ctx.fillText(eco.name.toUpperCase(), px, py + Rs + 44);
       ctx.shadowBlur = 0;
 
-      const n = eco.coins.length;
+      const n = ALL.filter(c => c.ecoKey === eco.key).length;
       ctx.font = `700 12px ui-monospace,"SF Mono",Menlo,monospace`;
       ctx.fillStyle = hexA(eco.color, 0.92);
       ctx.fillText(n === 0 ? 'NO COINS YET' : n + ' COINS', px, py + Rs + 68);
@@ -1039,122 +1049,6 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
     hits.push({ id: 'eco-body-' + eco.key, x: px, y: py, r: Rs * 1.2, z: pz, bodyKey: eco.key });
   }});
 
-    // Coins orbit their eco body — same visual language as Solana's pump/x/dex orbiters
-  {
-    const n = eco.coins.length;
-    // Always-visible brightness curve, matching Solana's pump/X/DEX orbiters
-    const extrasAlpha = 0.6 + clamp((centerness - 0.5) / 0.3, 0, 1) * 0.4;
-    const showLabels = centerness > 0.45;
-
-    if (n > 0) {
-      // 1.6 minimum (vs 1.4) so coins clear the eco planet's hit circle (1.2 Rs)
-      const ORB = Rs * (1.6 + 0.9 * centerness) * (1 + Math.min(n, 12) * 0.03);
-      const TILT = 0.22;
-      const speed = 0.35;
-
-      for (let i = 0; i < n; i++) {
-        const coin = eco.coins[i];
-        const a = (i / n) * TAU + t * speed;
-
-        const coinAge = RT - (coin.bornAt || 0);
-        const spawnScale = coinAge < 0.9 ? easeOutBack(clamp(coinAge / 0.9, 0, 1)) : 1;
-
-        P(body.wx + ORB * Math.cos(a),
-          body.wy + ORB * TILT * Math.sin(a),
-          body.wz + ORB * Math.sin(a));
-        if (PZ < 40) continue;
-        const cx = PX, cy = PY, cz = PZ;
-        const cr = Math.max(8, Rs * 0.17) * spawnScale;
-
-        if (!coin.img) {
-          coin.img = new Image();
-          coin.img.src = coin.logo_url || coinFallbackSvg(coin.symbol, coin.color || eco.color);
-        }
-        const coinColor = coin.color || eco.color;
-        const hovering = hoverId === 'coin-' + (coin.address || coin.symbol);
-
-        list.push({ z: cz, f: () => {
-          // Halo — makes the coin pop like the Solana orbiters
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          const halo = ctx.createRadialGradient(cx, cy, cr * 0.45, cx, cy, cr * 2.1);
-          halo.addColorStop(0, hexA(coinColor, 0.42 * extrasAlpha));
-          halo.addColorStop(0.55, hexA(coinColor, 0.14 * extrasAlpha));
-          halo.addColorStop(1, hexA(coinColor, 0));
-          ctx.fillStyle = halo;
-          ctx.beginPath(); ctx.arc(cx, cy, cr * 2.1, 0, TAU); ctx.fill();
-          ctx.restore();
-
-          ctx.globalAlpha = extrasAlpha;
-          drawBall(cx, cy, cr, coinColor, coin.img, coin.symbol ? coin.symbol[0] : '?', '#fff');
-
-          if (hovering) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(cx, cy, cr * 1.45, 0, TAU);
-            ctx.strokeStyle = eco.color;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.lineDashOffset = -t * 20;
-            ctx.stroke();
-            ctx.restore();
-          }
-
-          if (showLabels) {
-            const la = clamp((centerness - 0.45) / 0.25, 0, 1);
-            ctx.globalAlpha = extrasAlpha * la;
-            ctx.font = `700 ${clamp(cr * 0.85, 10, 13)}px system-ui`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'alphabetic';
-            ctx.fillStyle = '#fff';
-            ctx.shadowColor = '#000';
-            ctx.shadowBlur = 6;
-            ctx.fillText(coin.symbol || '?', cx, cy + cr + 15);
-            ctx.shadowBlur = 0;
-          }
-          ctx.globalAlpha = 1;
-
-          hits.push({
-            id: 'coin-' + (coin.address || coin.symbol),
-            x: cx, y: cy, r: cr * 1.35, z: cz,
-            ecoCoin: { eco: eco.key, coin }
-          });
-        }});
-      }
-    } else {
-      // No coins yet — subtle empty slots, only when the body is centered
-      const slotAlpha = clamp((centerness - 0.5) / 0.25, 0, 1);
-      if (slotAlpha > 0.01) {
-        const slots = 6;
-        const ORB = Rs * (1.4 + 1.1 * centerness);
-        const TILT = 0.22;
-        for (let i = 0; i < slots; i++) {
-          const a = i / slots * TAU + t * 0.08;
-          P(body.wx + ORB * Math.cos(a),
-            body.wy + ORB * TILT * Math.sin(a),
-            body.wz + ORB * Math.sin(a));
-          if (PZ < 40) continue;
-          const cx = PX, cy = PY, cz = PZ;
-          list.push({ z: cz, f: () => {
-            ctx.globalAlpha = slotAlpha * 0.7;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
-            ctx.fillStyle = hexA(eco.color, 0.08);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(cx, cy, Rs * 0.18, 0, TAU);
-            ctx.strokeStyle = hexA(eco.color, 0.45);
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 6]);
-            ctx.stroke();
-            ctx.restore();
-            ctx.globalAlpha = 1;
-          }});
-        }
-      }
-    }
-  }
 }
 
 function drawEcoRing(t) {
@@ -1276,7 +1170,8 @@ function showEcoBanner(eco) {
   b.style.setProperty('--eco-color', eco.color);
   $('ecoIc').textContent = eco.symbol;
   $('ecoName').textContent = eco.name;
-  $('ecoCount').textContent = eco.coins.length + ' COINS';
+  const count = ALL.filter(c => c.ecoKey === eco.key).length;
+  $('ecoCount').textContent = count + ' COIN' + (count === 1 ? '' : 'S');
   b.classList.add('show');
 }
 
@@ -1356,9 +1251,8 @@ async function addCoinForEco(ecoKey, address) {
   const trimmed = address.trim();
   if (trimmed.length < 10) return { error: 'Invalid address' };
 
-  if (eco.coins.find(c => c.address && c.address.toLowerCase() === trimmed.toLowerCase())) {
-    return { error: 'Already added' };
-  }
+  const existing = ALL.find(c => c.ca && c.ca.toLowerCase() === trimmed.toLowerCase());
+  if (existing) return { error: 'Already added' };
 
   addCoinBtn.disabled = true;
   addCoinBtn.textContent = 'CHECKING…';
@@ -1372,18 +1266,22 @@ async function addCoinForEco(ecoKey, address) {
     pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
     const pair = pairs[0];
 
-    const coin = {
-      symbol: pair.baseToken?.symbol || '?',
+    const { error } = await sb.from('orbit_communities').insert({
       name: pair.baseToken?.name || 'Unknown',
-      address: pair.baseToken?.address || trimmed,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      tagline: pair.baseToken?.symbol || 'TOKEN',
+      ca: pair.baseToken?.address || trimmed,
       logo_url: pair.info?.imageUrl || '',
-      bornAt: performance.now() / 1000
-    };
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      emoji: `${ecoKey}|🪙`
+    });
+    if (error) throw error;
 
-    await persistEcoCoin(ecoKey, coin);
-    eco.coins.push(coin);
-    return { coin };
+    // Match the Solana path: plain insert + full re-sync
+    await syncAll();
+
+    const newAddr = (pair.baseToken?.address || trimmed).toLowerCase();
+    const newC = ALL.find(c => c.ca && c.ca.toLowerCase() === newAddr);
+    return { coin: newC };
   } catch (e) {
     return { error: e.message || 'Failed to validate' };
   } finally {
@@ -1404,10 +1302,21 @@ addCoinBtn.onclick = async () => {
   }
 
   const eco = getEco(addCoinEcoKey);
-  showToast(`${result.coin.symbol} added to ${eco.name} ✓`);
+
+  if (!result.coin) {
+    // INSERT succeeded, but the follow-up SELECT didn't return the row → RLS
+    showToast('Saved, but not readable — check SELECT RLS on orbit_communities', true);
+    closeAddCoin();
+    return;
+  }
+
+  showToast(`${result.coin.tag || result.coin.name} added to ${eco.name} ✓`);
   triggerCoinAddFX(eco);
   showEcoBanner(eco);
   closeAddCoin();
+
+  layout();
+  buildDock();
 };
 
 addCoinInput.onkeydown = e => { if (e.key === 'Enter') addCoinBtn.click(); };
@@ -1497,8 +1406,20 @@ let outerR = 250, sizeMul = 1;
 function hyd(d) {
   if (HY[d.id]) return HY[d.id];
   const c = Object.assign({}, d);
+
+  // Parse ecoKey from emoji prefix "ecoKey|emoji" — eco coins get "eth|🪙", Solana coins get "🪙"
+  const rawEmoji = d.emoji || '';
+  const pipeIdx = rawEmoji.indexOf('|');
+  if (pipeIdx > 0) {
+    c.ecoKey = rawEmoji.slice(0, pipeIdx);
+    c.emoji = rawEmoji.slice(pipeIdx + 1);
+  } else {
+    c.ecoKey = null; // Solana
+    c.emoji = rawEmoji;
+  }
+
   c.src = d.logo_url || 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${d.color || '#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="40" fill="#fff">${esc(d.emoji || initials(d.name))}</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${d.color || '#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="40" fill="#fff">${esc(c.emoji || initials(d.name))}</text></svg>`
   );
   c.img = new Image();
   c.img.src = c.src;
@@ -1567,11 +1488,14 @@ function mkBelt(r, w, th, n, dir) {
 
 function layout() {
   LANES.length = 0;
+  const ecoKey = currentEcoKey();
+  const visible = ALL.filter(c => (c.ecoKey || null) === ecoKey);
+
   let i = 0, lane = 0;
-  while (i < ALL.length) {
+  while (i < visible.length) {
     const cap = 1 + Math.floor(lane / 4);
     const L = laneDef(lane);
-    for (let k = 0; k < cap && i < ALL.length; k++) L.members.push(ALL[i++]);
+    for (let k = 0; k < cap && i < visible.length; k++) L.members.push(visible[i++]);
     LANES.push(L);
     lane++;
   }
@@ -1583,7 +1507,28 @@ function layout() {
       c.baseSize = clamp(30 + Math.log10((c.members || 1) + 10) * 6, 36, 54);
     });
   }
-  outerR = LANES.length ? LANES[LANES.length - 1].r * (1 + 0.12) : 250;
+
+  // outerR = widest lane across ALL ecos, so the eco ring stays stable when you swap
+  const counts = { __sol: 0, eth: 0, bnb: 0, avax: 0, rh: 0 };
+  for (const c of ALL) {
+    const k = c.ecoKey || '__sol';
+    if (counts[k] !== undefined) counts[k]++;
+  }
+  let maxR = 250;
+  for (const k in counts) {
+    const n = counts[k];
+    if (!n) continue;
+    let idx = 0, ln = 0, maxLane = 0;
+    while (idx < n) {
+      const cap = 1 + Math.floor(ln / 4);
+      for (let j = 0; j < cap && idx < n; j++) idx++;
+      maxLane = ln;
+      ln++;
+    }
+    const r = (250 + maxLane * 92) * 1.12;
+    if (r > maxR) maxR = r;
+  }
+  outerR = maxR;
   sizeMul = clamp(Math.pow(outerR / 760, 0.4), 1, 1.8);
 
   BELTS = [];
@@ -1970,13 +1915,15 @@ function frame(now) {
   const list = [];
 
   const solBody = BODIES.find(b => b.isSol);
-  if (solBody.isCenter) {
+  {
+    const ecoKey = currentEcoKey();
     projBelts();
     drawBelts(true, sp.z);
     drawRings();
     drawWaves();
     for (const c of ALL) {
       if (!c.lane) continue;
+      if ((c.ecoKey || null) !== ecoKey) continue;
       P(c.pos[0], c.pos[1], c.pos[2]);
       if (PZ < 40) continue;
       c.pj.x = PX; c.pj.y = PY; c.pj.z = PZ; c.pj.s = PS;
@@ -1993,7 +1940,7 @@ function frame(now) {
   list.sort((a, b) => b.z - a.z);
   for (const o of list) o.f();
 
-  if (solBody.isCenter) drawBelts(false, sp.z);
+  drawBelts(false, sp.z);
   drawFX(dt);
 
   F = savedF;
@@ -2182,7 +2129,8 @@ function buildDock() {
     h('button', { class: 'chip core', onclick: () => select('core') }, '✦ General'),
     h('button', { class: 'chip add', onclick: () => $('modal').classList.add('open') }, '＋ New World')
   );
-  ALL.forEach(c => {
+  const ecoKey = currentEcoKey();
+  ALL.filter(c => (c.ecoKey || null) === ecoKey).forEach(c => {
     dock.append(h('button', { class: 'chip', onclick: () => select(c.id) },
       h('img', { src: c.src, alt: c.name }), c.name
     ));
@@ -2238,12 +2186,19 @@ async function openChat(roomId, roomName, roomColor, ca) {
     actions.push(h('button', {
       class: 'icon-btn danger', title: 'Delete planet',
       onclick: () => showConfirm('Delete this planet and all its messages? This cannot be undone.', async () => {
-        const { error } = await sb.from('orbit_communities').delete().eq('id', roomId);
-        if (error) showToast('Error deleting: ' + error.message, true);
-        else {
+        const { error, count } = await sb.from('orbit_communities')
+          .delete({ count: 'exact' })
+          .eq('id', roomId);
+        if (error) {
+          showToast('Error deleting: ' + error.message, true);
+        } else if (!count) {
+          showToast('Delete blocked — check RLS on orbit_communities', true);
+        } else {
           showToast('Planet destroyed 💥');
           select(null);
           await refreshCommunities();
+          const ecoCenter = BODIES.find(b => !b.isSol && b.isCenter);
+          if (ecoCenter) showEcoBanner(getEco(ecoCenter.key));
         }
       })
     }, '🗑'));
@@ -2440,12 +2395,12 @@ function select(id) {
     return;
   }
 
-   // If a chat planet is selected while an eco is centered, bring Sol back
-  // first so the chat's own planet is visible on stage.
-  // `select('core')` is exempt — the general chat is themed to the center body.
+  // Swap to whichever eco the planet belongs to (null → Solana)
   if (id && id !== 'core') {
-    const ecoCenter = BODIES.find(b => !b.isSol && b.isCenter);
-    if (ecoCenter) swapCenterTo('sol');
+    const room = ALL.find(c => c.id === id);
+    const targetEco = (room && room.ecoKey) || 'sol';
+    const cur = BODIES.find(b => b.isCenter);
+    if (cur && cur.key !== targetEco) swapCenterTo(targetEco);
   }
 
   // Empty click OR chat selection. Do NOT touch the eco banner.
@@ -2540,26 +2495,25 @@ createBtn.onclick = async () => {
       const best = sorted[0] || ecoPair;
 
       const newAddr = (best.baseToken?.address || ca).toLowerCase();
-      if (eco.coins.find(c => c.address && c.address.toLowerCase() === newAddr)) {
+      if (ALL.find(c => c.ca && c.ca.toLowerCase() === newAddr)) {
         throw new Error(`Already added to ${eco.name}`);
       }
-
-      const newCoin = {
-        symbol: best.baseToken?.symbol || '?',
+      const { error: insErr } = await sb.from('orbit_communities').insert({
         name: best.baseToken?.name || 'Unknown',
-        address: best.baseToken?.address || ca,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        tagline: best.baseToken?.symbol || 'TOKEN',
+        ca: best.baseToken?.address || ca,
         logo_url: best.info?.imageUrl || '',
-        bornAt: performance.now() / 1000
-      };
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        emoji: `${ecoKey}|🪙`
+      });
+      if (insErr) throw insErr;
 
-      await persistEcoCoin(ecoKey, newCoin);
-      eco.coins.push(newCoin);
+      await refreshCommunities();
       triggerCoinAddFX(eco);
       modal.classList.remove('open');
       caInput.value = '';
       showToast(`${best.baseToken?.symbol || 'Token'} added to ${eco.name} ✓`);
-      if (ecoKey !== selId) swapCenterTo(ecoKey);
+      if (ecoKey !== currentEcoKey()) swapCenterTo(ecoKey);
       showEcoBanner(eco);
       return;
     }
@@ -2601,8 +2555,7 @@ async function refreshCommunities() {
   const oldPitch = cam.pitch;
   const oldCenY = wantCenY;
   try {
-    await syncAll();
-    try { await syncEcoCoins(); } catch (e2) { console.warn('[ORBITS] eco coin refresh failed:', e2); }
+        await syncAll();
     layout();
     initBodies();
     buildDock();
@@ -2638,11 +2591,7 @@ async function initApp() {
     console.warn('Could not fetch communities from Supabase:', e);
   }
 
-  try {
-    await syncEcoCoins();
-  } catch (e) {
-    console.warn('Could not fetch eco coins from Supabase:', e);
-  }
+    // (eco coins now live in orbit_communities; nothing to fetch separately)
 
   layout();
   initBodies();
