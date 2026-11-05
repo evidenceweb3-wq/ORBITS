@@ -705,9 +705,10 @@ function drawSolBody(body, px, py, pz, R, centerness, t, list) {
     hits.push({ id: 'sol-body', x: px, y: py, r: R * 1.2, z: pz, bodyKey: 'sol' });
   }});
 
-  if (centerness > 0.5) {
-    const extrasAlpha = clamp((centerness - 0.5) / 0.3, 0, 1);
-    const ORB = R * 2.5;
+    // Pumps orbit Sol at all times — tighter when ringed, wider when centered
+  {
+    const extrasAlpha = 0.6 + clamp((centerness - 0.5) / 0.3, 0, 1) * 0.4;
+    const ORB = R * (1.4 + 1.1 * centerness);
     const TILT = 0.22;
 
     for (let i = 0; i < SOL_BODIES.length; i++) {
@@ -821,8 +822,8 @@ function triggerSwapFX(color) {
   warpColor = color;
 
   const now = performance.now() / 1000;
-  shocks.push({ t0: now, color, delay: 0,   duration: 1.4, speed: 900, width: 4 });
-  shocks.push({ t0: now, color, delay: 0.2, duration: 1.6, speed: 700, width: 3 });
+  shocks.push({ t0: now, color, delay: 0, duration: 1.6, speed: 800, width: 5 });
+  // one shock = one expanding ring, drawn on the orbit plane
 
   const cx = W / 2, cy = cenY;
   for (let i = 0; i < 65; i++) {
@@ -877,12 +878,15 @@ function swapCenterTo(targetKey) {
   if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
   if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
 
-  const tempSlot = current.slot;
+    const tempSlot = current.slot;
   current.slot = target.slot;
   target.slot = tempSlot;
 
   current.isCenter = false;
   target.isCenter = true;
+
+  // Recenter the new body — reset any offset left from a previous open chat
+  wantCenY = H * 0.5;
 
   const color = target.isSol ? '#14F195' : getEco(target.key).color;
   triggerSwapFX(color);
@@ -952,8 +956,9 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
   const Rs = R * (1 + addPulse * 0.12);
 
   list.push({ z: pz, f: () => {
-    if (centerness > 0.3) {
-      const a = clamp((centerness - 0.3) / 0.5, 0, 1);
+       // Always-on color glow — fades slightly when ringed but never disappears
+    {
+      const a = 0.5 + clamp(centerness, 0, 1) * 0.5;
       ctx.globalCompositeOperation = 'lighter';
       const aura = ctx.createRadialGradient(px, py, Rs * 0.3, px, py, Rs * 2.8);
       aura.addColorStop(0, hexA(eco.color, 0.55 * a));
@@ -1032,12 +1037,12 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
     hits.push({ id: 'eco-body-' + eco.key, x: px, y: py, r: Rs * 1.2, z: pz, bodyKey: eco.key });
   }});
 
-  if (centerness > 0.5) {
-    const extrasAlpha = clamp((centerness - 0.5) / 0.3, 0, 1);
-    const ORB = Rs * 2.5;
-    const TILT = 0.24;
+    // Coins orbit their eco body at all times — tighter when ringed, wider when centered
+  {
+    const extrasAlpha = 0.6 + clamp((centerness - 0.5) / 0.3, 0, 1) * 0.4;
+    const ORB = Rs * (1.4 + 1.1 * centerness);
+    const TILT = 0.22;
     const n = eco.coins.length;
-
     if (n > 0) {
       // Energy beams from center to each coin — body-relative now
       ctx.save();
@@ -1047,7 +1052,7 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
       ctx.setLineDash([3, 6]);
       ctx.lineDashOffset = -t * 20;
       for (let i = 0; i < n; i++) {
-        const a = i / n * TAU + t * 0.20;
+        const a = i / n * TAU + t * 0.35;
         P(body.wx + ORB * Math.cos(a),
           body.wy + ORB * TILT * Math.sin(a),
           body.wz + ORB * Math.sin(a));
@@ -1060,9 +1065,9 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
       ctx.setLineDash([]);
       ctx.restore();
 
-      for (let i = 0; i < n; i++) {
+           for (let i = 0; i < n; i++) {
         const coin = eco.coins[i];
-        const a = i / n * TAU + t * 0.20;
+        const a = i / n * TAU + t * 0.35;
         const pulseScale = 1 + Math.sin(t * 2 + i * 1.5) * 0.06;
         // ← FIX: coins orbit the BODY, not world origin
         P(body.wx + ORB * Math.cos(a),
@@ -1070,7 +1075,7 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
           body.wz + ORB * Math.sin(a));
         if (PZ < 40) continue;
         const cx = PX, cy = PY, cz = PZ;
-        const cr = Math.max(16, Rs * 0.18) * pulseScale;
+        const cr = Math.max(10, Rs * 0.16) * pulseScale;
 
         if (!coin.img) {
           coin.img = new Image();
@@ -1154,72 +1159,6 @@ function drawEcoRing(t) {
   }
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.restore();
-}
-
-/* ═══ Electric glow constellation lines ═══ */
-function drawConstellationLines(t) {
-  const ringBodies = BODIES.filter(b => !b.isCenter).sort((a, b) => a.slot - b.slot);
-  if (ringBodies.length < 2) return;
-
-  const pulse = 0.5 + 0.5 * Math.sin(t * 1.5);
-  const baseAlpha = 0.14 + pulse * 0.10;
-
-  ctx.save();
-  ctx.lineCap = 'round';
-
-  for (let i = 0; i < ringBodies.length; i++) {
-    const b1 = ringBodies[i];
-    const b2 = ringBodies[(i + 1) % ringBodies.length];
-
-    P(b1.wx, b1.wy, b1.wz);
-    if (PZ < 40) continue;
-    const x1 = PX, y1 = PY;
-
-    P(b2.wx, b2.wy, b2.wz);
-    if (PZ < 40) continue;
-    const x2 = PX, y2 = PY;
-
-    // Soft outer glow — electric blue-cyan
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.shadowColor = 'rgba(120, 200, 255, 0.85)';
-    ctx.shadowBlur = 14;
-    ctx.strokeStyle = `rgba(120, 200, 255, ${baseAlpha * 0.55})`;
-    ctx.lineWidth = 4;
-    ctx.setLineDash([6, 12]);
-    ctx.lineDashOffset = -t * 10;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-
-    // Mid halo
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = `rgba(160, 220, 255, ${baseAlpha * 0.9})`;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([3, 9]);
-    ctx.lineDashOffset = -t * 16;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-
-    // Bright thin core — offset dashes so it flickers against the halo
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = 'rgba(200, 240, 255, 0.95)';
-    ctx.strokeStyle = `rgba(220, 245, 255, ${baseAlpha * 1.1})`;
-    ctx.lineWidth = 0.9;
-    ctx.setLineDash([2, 18]);
-    ctx.lineDashOffset = -t * 22;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  }
-
-  ctx.shadowBlur = 0;
-  ctx.setLineDash([]);
-  ctx.globalCompositeOperation = 'source-over';
   ctx.restore();
 }
 
@@ -1918,8 +1857,7 @@ function frame(now) {
     }
   }
 
-  drawEcoRing(now / 1000);
-  drawConstellationLines(now / 1000);
+   drawEcoRing(now / 1000);
 
   for (const body of BODIES) {
     drawBody(body, now / 1000, list);
@@ -1948,16 +1886,23 @@ function frame(now) {
     const s = shocks[i];
     const age = RT - s.t0 - (s.delay || 0);
     if (age < 0) continue;
-    if (age > (s.duration || 1.3)) { shocks.splice(i, 1); continue; }
-    const R = age * (s.speed || 900);
-    const a = 1 - age / (s.duration || 1.3);
+    if (age > (s.duration || 1.6)) { shocks.splice(i, 1); continue; }
+    const R = age * (s.speed || 800);
+    const a = 1 - age / (s.duration || 1.6);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.strokeStyle = s.color;
     ctx.globalAlpha = a * 0.55;
-    ctx.lineWidth = (s.width || 4) * a;
+    ctx.lineWidth = (s.width || 5) * a;
     ctx.beginPath();
-    ctx.arc(W / 2, cenY, R, 0, TAU);
+    let pen = false;
+    for (let k = 0; k <= 96; k++) {
+      const ang = k / 96 * TAU;
+      P(R * Math.cos(ang), 0, R * Math.sin(ang));   // XZ orbit plane → tilted ellipse
+      if (PZ < 30) { pen = false; continue; }
+      if (pen) ctx.lineTo(PX, PY);
+      else { ctx.moveTo(PX, PY); pen = true; }
+    }
     ctx.stroke();
     ctx.restore();
   }
@@ -1996,11 +1941,18 @@ function frame(now) {
 }
 
 function hitAt(x, y) {
-  let best = null;
+  let best = null, bestBody = null;
   for (const h of hits) {
-    if (Math.hypot(h.x - x, h.y - y) <= h.r + 10 && (!best || h.z < best.z)) best = h;
+    if (Math.hypot(h.x - x, h.y - y) <= h.r + 10) {
+      if (h.bodyKey) {
+        // Prefer body hits (planets) over label/decoration hits.
+        if (!bestBody || h.z < bestBody.z) bestBody = h;
+      } else {
+        if (!best || h.z < best.z) best = h;
+      }
+    }
   }
-  return best;
+  return bestBody || best;
 }
 function pd() {
   const a = [...ptrs.values()];
