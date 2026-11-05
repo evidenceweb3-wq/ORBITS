@@ -667,14 +667,7 @@ function drawSolBody(body, px, py, pz, R, centerness, t, list) {
       ctx.restore();
     }
 
-    if (centerness > 0.4) {
-      const a = clamp((centerness - 0.4) / 0.4, 0, 1);
-      ctx.globalAlpha = a;
-      drawSolHUD(px, py + R + 22);
-      ctx.globalAlpha = 1;
-    }
-
-    if (centerness > 0.4) {
+      if (centerness > 0.4) {
       const a = clamp((centerness - 0.4) / 0.4, 0, 1);
       const labelSize = clamp(R * (0.16 + 0.04 * centerness), 10, 20);
       ctx.globalAlpha = a;
@@ -686,7 +679,18 @@ function drawSolBody(body, px, py, pz, R, centerness, t, list) {
       ctx.shadowBlur = 8 + centerness * 16;
       ctx.fillText('SOLANA', px, py + R + 22 + 36);
       ctx.shadowBlur = 0;
+
+      const gcY = py + R + 22 + 36 + 28;
+      const gcSize = clamp(labelSize * 0.55, 9, 12);
+      ctx.font = `800 ${gcSize}px ui-monospace,'SF Mono',Menlo,monospace`;
+      ctx.fillStyle = act ? '#14F195' : 'rgba(20,241,149,.8)';
+      ctx.shadowColor = 'rgba(20,241,149,1)';
+      ctx.shadowBlur = act ? 18 : 10;
+      ctx.fillText('◇ GENERAL CHAT', px, gcY);
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
+
+      hits.push({ id: 'core', x: px, y: gcY - gcSize * 0.4, r: 72, z: pz - 2 });
     } else if (R > 8) {
       ctx.font = `700 ${clamp(R * 0.4, 9, 13)}px system-ui`;
       ctx.textAlign = 'center';
@@ -755,8 +759,10 @@ const ECOSYSTEMS = [
     logo: 'https://i.postimg.cc/9XpN1Bhs/images-(12).png', coins: [] },
   { key: 'bnb', name: 'BNB Chain', symbol: 'BNB', color: '#F3BA2F', chainId: 'bsc',
     logo: 'https://i.postimg.cc/T29HQc6Z/images-(10).png', coins: [] },
-  { key: 'rh', name: 'Robinhood', symbol: 'RH', color: '#FF8C3C', chainId: 'robinhood',
-    logo: 'https://i.postimg.cc/PxKzb2wM/images-(9).png', coins: [] }
+  { key: 'avax', name: 'Avalanche', symbol: 'AVAX', color: '#E84142', chainId: 'avalanche',
+    logo: 'https://i.postimg.cc/KYJsxd7L/XTVCAVAX-600.png', coins: [] },
+  { key: 'rh', name: 'Robinhood', symbol: 'RH', color: '#CCFF00', chainId: 'robinhood',
+    logo: 'https://i.postimg.cc/gcXdtDm9/images-(9)-(1).png', coins: [] }
 ];
 
 ECOSYSTEMS.forEach(e => {
@@ -765,17 +771,17 @@ ECOSYSTEMS.forEach(e => {
   e.lastCoinAddAt = -99;
 });
 
-const BODY_KEYS = ['eth', 'bnb', 'rh', 'sol'];
+const BODY_KEYS = ['eth', 'bnb', 'avax', 'rh', 'sol'];
 const BODIES = BODY_KEYS.map((key, i) => ({
   key,
   isSol: key === 'sol',
-  slot: i % 3,
+  slot: i % 4,
   isCenter: key === 'sol',
   wx: 0, wy: 0, wz: 0
 }));
 
-const SLOT_ANGLES = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
-const SLOT_Y = [0.10, -0.05, 0.15];
+const SLOT_ANGLES = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+const SLOT_Y = [0.12, -0.06, 0.16, -0.09];
 
 const ECO_RING = { radius: 0, elevation: 0 };
 let ringRotation = 0;
@@ -785,7 +791,7 @@ function getBody(key) { return BODIES.find(b => b.key === key); }
 
 function layoutEcosystems() {
   ECO_RING.radius = outerR * 1.55;
-  ECO_RING.elevation = outerR * 0.42;
+  ECO_RING.elevation = 0;
   outerR = Math.max(outerR, ECO_RING.radius * 1.08);
 }
 
@@ -799,8 +805,7 @@ function initBodies() {
 function getTargetPos(body) {
   if (body.isCenter) return [0, 0, 0];
   const a = SLOT_ANGLES[body.slot] + ringRotation;
-  const yOff = SLOT_Y[body.slot] * ECO_RING.radius;
-  return [ECO_RING.radius * Math.cos(a), ECO_RING.elevation + yOff, ECO_RING.radius * Math.sin(a)];
+  return [ECO_RING.radius * Math.cos(a), ECO_RING.elevation, ECO_RING.radius * Math.sin(a)];
 }
 
 /* ─── Transition FX state (softer, still epic) ─── */
@@ -996,7 +1001,18 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
       ctx.font = `700 12px ui-monospace,"SF Mono",Menlo,monospace`;
       ctx.fillStyle = hexA(eco.color, 0.92);
       ctx.fillText(n === 0 ? 'NO COINS YET' : n + ' COINS', px, py + Rs + 68);
+
+      const gcY = py + Rs + 94;
+      const gcSize = clamp(nameSize * 0.5, 10, 13);
+      ctx.font = `800 ${gcSize}px ui-monospace,'SF Mono',Menlo,monospace`;
+      ctx.fillStyle = act ? eco.color : hexA(eco.color, 0.8);
+      ctx.shadowColor = eco.color;
+      ctx.shadowBlur = act ? 18 : 10;
+      ctx.fillText('◇ GENERAL CHAT', px, gcY);
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
+
+      hits.push({ id: 'core', x: px, y: gcY - gcSize * 0.4, r: 72, z: pz - 2 });
     } else if (Rs > 8) {
       ctx.font = `700 ${clamp(Rs * 0.4, 9, 13)}px system-ui`;
       ctx.textAlign = 'center';
@@ -2031,7 +2047,11 @@ function up(e) {
         onEcoCoinClick(h.ecoCoin.eco, h.ecoCoin.coin);
       } else if (h && h.bodyKey) {
         const cur = BODIES.find(b => b.isCenter);
-        if (cur && cur.key !== h.bodyKey) swapCenterTo(h.bodyKey);
+        if (cur && cur.key === h.bodyKey) {
+          select('core');
+        } else if (cur) {
+          swapCenterTo(h.bodyKey);
+        }
       } else {
         select(h ? h.id : null);
       }
@@ -2347,7 +2367,15 @@ function select(id) {
   sheet.classList.add('open');
 
   if (id === 'core') {
-    openChat(GENERAL_ROOM, 'General Chat', '#ffb347');
+    const cur = BODIES.find(b => b.isCenter);
+    let label = 'General Chat';
+    let color = '#ffb347';
+    if (cur && !cur.isSol) {
+      const eco = getEco(cur.key);
+      label = eco.name + ' Chat';
+      color = eco.color;
+    }
+    openChat(GENERAL_ROOM, label, color);
   } else {
     const room = ALL.find(c => c.id === id);
     if (room) openChat(room.id, room.name, room.color, room.ca);
@@ -2385,7 +2413,7 @@ const createBtn = $('createBtn');
 $('modalCloseBtn').onclick = () => { modal.classList.remove('open'); caInput.value = ''; };
 modal.onclick = e => { if (e.target === modal) { modal.classList.remove('open'); caInput.value = ''; } };
 
-const EVM_CHAIN_TO_ECO = { ethereum: 'eth', bsc: 'bnb', robinhood: 'rh' };
+const EVM_CHAIN_TO_ECO = { ethereum: 'eth', bsc: 'bnb', robinhood: 'rh', avalanche: 'avax' };
 
 createBtn.onclick = async () => {
   const ca = caInput.value.trim();
