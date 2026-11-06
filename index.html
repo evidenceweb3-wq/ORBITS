@@ -590,11 +590,8 @@ const SOL_ICONS = {
 
 const SOL_LINKS = { pump: 'https://pump.fun', x: 'https://x.com', dex: 'https://dexscreener.com' };
 
-const SOL_BODIES = [
-  { key: 'pump', color: '#3ddc84', glyph: 'p', ang: -Math.PI / 2,               gcol: '#05230f' },
-  { key: 'x',    color: '#11161f', glyph: 'X', ang: -Math.PI / 2 + TAU / 3,     gcol: '#ffffff' },
-  { key: 'dex',  color: '#3b82f6', glyph: 'D', ang: -Math.PI / 2 + TAU * 2 / 3, gcol: '#ffffff' }
-];
+// Pump / X / Dex moons temporarily hidden — re-populate to re-enable
+const SOL_BODIES = [];
 
 SOL_BODIES.forEach(b => {
   const url = SOL_ICONS[b.key];
@@ -1236,13 +1233,34 @@ async function onEcoCoinClick(ecoKey, coin) {
 function showEcoBanner(eco) {
   const b = $('ecoBanner');
   if (!b) return;
-  if (!eco) { b.classList.remove('show'); return; }
-  b.style.setProperty('--eco-color', eco.color);
-  $('ecoIc').textContent = eco.symbol;
-  $('ecoName').textContent = (CHAIN_CONFIG[eco.key]?.label) || eco.name;
-  const count = ALL.filter(c => c.ecoKey === eco.key).length;
-  $('ecoCount').textContent = count + ' COIN' + (count === 1 ? '' : 'S');
+
+  const isSol = !eco;
+  const color = isSol ? '#14F195' : eco.color;
+
+  b.style.setProperty('--eco-color', color);
+  $('ecoIc').textContent   = isSol ? 'SOL' : eco.symbol;
+  $('ecoName').textContent = isSol ? 'Solana'
+                                   : ((CHAIN_CONFIG[eco.key]?.label) || eco.name);
+
+  const n = ALL.filter(c => (c.ecoKey || null) === (isSol ? null : eco.key)).length;
+  $('ecoCount').textContent = n + ' COIN' + (n === 1 ? '' : 'S');
+
+  const addBtn = $('ecoAddBtn'), closeBtn = $('ecoClose');
+  if (addBtn)   addBtn.style.display   = isSol ? 'none' : '';
+  if (closeBtn) closeBtn.style.display = isSol ? 'none' : '';
+
   b.classList.add('show');
+}
+
+function hideEcoBanner() {
+  $('ecoBanner')?.classList.remove('show');
+}
+
+function refreshBanner() {
+  const generalOpen = sheet.classList.contains('open') && currentRoomId === GENERAL_ROOM;
+  if (generalOpen) { hideEcoBanner(); return; }
+  const c = BODIES.find(x => x.isCenter);
+  showEcoBanner(c && !c.isSol ? getEco(c.key) : null);
 }
 
 $('ecoClose').onclick = () => {
@@ -1524,12 +1542,30 @@ function mkBelt(r, w, th, n, dir) {
     r, n, dir, w: 0.34 * Math.pow(250 / r, 1.5) * 0.8,
     cx: new Float32Array(n), sx: new Float32Array(n), rr: new Float32Array(n), yy: new Float32Array(n),
     bx: new Float32Array(n), by: new Float32Array(n), bz: new Float32Array(n),
-    ba: new Float32Array(n)
+    ba: new Float32Array(n),
+    nv:   new Uint8Array(n),
+    sz:   new Float32Array(n),
+    rot:  new Float32Array(n),
+    spin: new Float32Array(n),
+    pvx:  new Float32Array(n * 5),
+    pvy:  new Float32Array(n * 5)
   };
   for (let i = 0; i < n; i++) {
     const a = Math.random() * TAU;
     B.cx[i] = Math.cos(a); B.sx[i] = Math.sin(a);
     B.rr[i] = r + g3() * w; B.yy[i] = g3() * th;
+
+    const nv = 3 + Math.floor(Math.random() * 3);   // 3–5 sided rocks
+    B.nv[i]   = nv;
+    B.sz[i]   = 0.7 + Math.random() * 1.7;          // size variance
+    B.rot[i]  = Math.random() * TAU;
+    B.spin[i] = (Math.random() - 0.5) * 2.4;
+    for (let k = 0; k < nv; k++) {
+      const va = (k / nv) * TAU + (Math.random() - 0.5) * 0.6;
+      const vr = 0.55 + Math.random() * 0.8;        // jagged radius
+      B.pvx[i * 5 + k] = Math.cos(va) * vr;
+      B.pvy[i * 5 + k] = Math.sin(va) * vr;
+    }
   }
   return B;
 }
@@ -1666,20 +1702,33 @@ function projBelts() {
   }
 }
 function drawBelts(front, zs) {
-  ctx.globalAlpha = 0.75;
   for (const B of BELTS) {
+    ctx.globalAlpha = 0.92;
     for (let i = 0; i < B.n; i++) {
       const z = B.bz[i];
       if (z < 40) continue;
       if ((z <= zs) !== front) continue;
+
+      const s   = clamp(F / z * 9, 1.8, 11) * B.sz[i];
+      const ang = B.rot[i] + T * B.spin[i];
+      const ca  = Math.cos(ang), sa = Math.sin(ang);
+      const nv  = B.nv[i];
+      const ox  = B.bx[i], oy = B.by[i];
+
       ctx.fillStyle = ringColorAt(B.ba[i]);
-      const s = clamp(F / z * 3.2, 1, 2.4);
-      ctx.fillRect(B.bx[i], B.by[i], s, s);
+      ctx.beginPath();
+      for (let k = 0; k < nv; k++) {
+        const px = B.pvx[i * 5 + k], py = B.pvy[i * 5 + k];
+        const x = ox + (px * ca - py * sa) * s;
+        const y = oy + (px * sa + py * ca) * s;
+        if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
     }
   }
   ctx.globalAlpha = 1;
 }
-
 const LP = [0, 0, 0];
 function drawRings() {
   ctx.lineWidth = 1.2;
@@ -2225,6 +2274,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
   if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
 
   const isGeneral = roomId === GENERAL_ROOM;
+  if (isGeneral) hideEcoBanner(); else refreshBanner();
   const cObj = ALL.find(c => c.id === roomId);
   const isAdmin = walletAddress === ADMIN_WALLET;
   const needsVerify = !isGeneral && !!ca;
@@ -2255,8 +2305,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
           showToast('Planet destroyed 💥');
           select(null);
           await refreshCommunities();
-          const ecoCenter = BODIES.find(b => !b.isSol && b.isCenter);
-          if (ecoCenter) showEcoBanner(getEco(ecoCenter.key));
+          refreshBanner();
         }
       })
     }, '🗑'));
@@ -2432,6 +2481,8 @@ function select(id) {
     return;
   }
 
+  const prevSel = selId;               // captured before overwrite
+
   // Swap to whichever eco the planet belongs to (null → Solana)
   if (id && id !== 'core') {
     const room = ALL.find(c => c.id === id);
@@ -2447,13 +2498,20 @@ function select(id) {
   wantCenY = id ? H * 0.25 : H * 0.5;
   dock.classList.toggle('hide', !!id);
 
-    if (!id) {
+     if (!id) {
     currentRoomId = null;
     sheet.classList.remove('open');
     if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
     if (currentAccessChannel) { sb.removeChannel(currentAccessChannel); currentAccessChannel = null; }
     if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
-    waves.push({ t0: RT, color: '#ffb347' });
+
+    const prev = prevSel ? byId[prevSel] : null;
+    const cB   = BODIES.find(b => b.isCenter);
+    const pulseColor = prev ? prev.color
+                            : (cB && !cB.isSol ? getEco(cB.key).color : '#14F195');
+    waves.push({ t0: RT, color: pulseColor });
+
+    refreshBanner();
     return;
   }
 
@@ -2543,10 +2601,11 @@ async function refreshCommunities() {
   const oldPitch = cam.pitch;
   const oldCenY = wantCenY;
   try {
-        await syncAll();
+            await syncAll();
     layout();
     initBodies();
     buildDock();
+    refreshBanner();
     want.dist = oldDist;
     wantCenY = oldCenY;
     cam.yaw = oldYaw;
@@ -2585,7 +2644,10 @@ async function initApp() {
   initBodies();
   buildDock();
 
-  setTimeout(() => document.body.classList.remove('booting'), 350);
+  setTimeout(() => {
+    document.body.classList.remove('booting');
+    refreshBanner();
+  }, 350);
 }
 
 requestAnimationFrame(frame);
