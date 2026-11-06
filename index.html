@@ -274,7 +274,6 @@ function showToast(msg, isError = false) {
    3. LIVE SOL PRICE
    ═══════════════════════════════════════════════════════════════ */
 let solData = null;
-let solFlashAt = -99;
 let solPrev = 0;
 
 async function fetchSolPrice() {
@@ -292,7 +291,6 @@ async function fetchSolPrice() {
 async function updateSolPrice() {
   const d = await fetchSolPrice();
   if (!d) return;
-  if (solPrev && d.price !== solPrev) solFlashAt = performance.now() / 1000;
   solPrev = d.price;
   solData = d;
 }
@@ -403,16 +401,22 @@ const statsCache = new Map();
 const STATS_TTL = 45000;
 let statsReqId = 0;
 
-async function getTokenStats(ca, force = false) {
+async function getTokenStats(ca, force = false, ecoKey = null) {
   if (!ca) return null;
-  const cached = statsCache.get(ca);
+  const cacheKey = (ecoKey || 'sol') + ':' + ca;
+  const cached = statsCache.get(cacheKey);
   if (!force && cached && Date.now() - cached.ts < STATS_TTL) return cached.data;
   try {
     const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
     if (!res.ok) return cached?.data || null;
     const json = await res.json();
-    const pairs = json.pairs || [];
+    let pairs = json.pairs || [];
     if (!pairs.length) return cached?.data || null;
+
+    const targetChain = chainIdOf(ecoKey);
+    const filtered = pairs.filter(p => p.chainId === targetChain);
+    pairs = filtered.length ? filtered : pairs;
+
     pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
     const pair = pairs[0];
     const data = {
@@ -422,9 +426,10 @@ async function getTokenStats(ca, force = false) {
       mcap: parseFloat(pair.marketCap || pair.fdv) || 0,
       liquidity: parseFloat(pair.liquidity?.usd) || 0,
       symbol: pair.baseToken?.symbol || '?',
-      name: pair.baseToken?.name || 'Unknown'
+      name: pair.baseToken?.name || 'Unknown',
+      chainId: pair.chainId
     };
-    statsCache.set(ca, { data, ts: Date.now() });
+    statsCache.set(cacheKey, { data, ts: Date.now() });
     return data;
   } catch (e) { return cached?.data || null; }
 }
@@ -440,12 +445,13 @@ function renderStatsHTML(data) {
   ].join('');
 }
 
-async function renderTokenStats(roomId, ca, container) {
+async function renderTokenStats(roomId, ca, container, ecoKey = null) {
   if (!ca) return;
   const reqId = ++statsReqId;
-  const cached = statsCache.get(ca);
+  const cacheKey = (ecoKey || 'sol') + ':' + ca;
+  const cached = statsCache.get(cacheKey);
   container.innerHTML = cached ? renderStatsHTML(cached.data) : '<div class="hs-loading">Loading market data…</div>';
-  const data = await getTokenStats(ca, true);
+  const data = await getTokenStats(ca, true, ecoKey);
   if (reqId !== statsReqId) return;
   if (!container.isConnected) return;
   if (currentRoomId !== roomId) return;
@@ -507,6 +513,72 @@ async function fetchTokenBalance(wallet, mint) {
   }
   balanceCache.set(key, { balance, ts: Date.now() });
   return balance;
+}
+
+/* ─── UNIFIED CHAIN CONFIG ─── */
+const CHAIN_CONFIG = {
+  sol:  { chainId: 'solana',    kind: 'sol', label: 'Solana',    color: '#14F195' },
+  eth:  { chainId: 'ethereum',  kind: 'evm', label: 'Ethereum',  color: '#627EEA' },
+  bnb:  { chainId: 'bsc',       kind: 'evm', label: 'BNB Chain', color: '#F3BA2F' },
+  avax: { chainId: 'avalanche', kind: 'evm', label: 'Avalanche', color: '#E84142' },
+  rh:   { chainId: 'robinhood', kind: 'evm', label: 'Robinhood', color: '#CCFF00' }
+};
+
+const EVM_RPCS = {
+  eth:  'https://ethereum.publicnode.com',
+  bnb:  'https://bsc-dataseed.binance.org',
+  avax: 'https://api.avax.network/ext/bc/C/rpc',
+  rh:   null
+};
+
+function chainIdOf(ecoKey) {
+  const cfg = CHAIN_CONFIG[ecoKey || 'sol'];
+  return cfg ? cfg.chainId : 'solana';
+}
+
+async function getEvmAddress() {
+  try {
+    const eth = window.phantom?.ethereum || window.ethereum;
+    if (!eth) return null;
+    const accs = await eth.request({ method: 'eth_accounts' });
+    return accs?.[0] || null;
+  } catch { return null; }
+}
+
+async function fetchEvmTokenBalance(wallet, tokenAddress, ecoKey) {
+  const rpc = EVM_RPCS[ecoKey];
+  if (!rpc) throw new Error('No public RPC for ' + (CHAIN_CONFIG[ecoKey]?.label || ecoKey));
+  const data = '0x70a08231' + wallet.toLowerCase().replace('0x', '').padStart(64, '0');
+  const res = await fetch(rpc, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'eth_call',
+      params: [{ to: tokenAddress, data }, 'latest']
+    })
+  });
+  if (!res.ok) throw new Error('RPC HTTP ' + res.status);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error.message || 'RPC error');
+  return BigInt(json.result || '0x0');
+}
+
+async function verifyHolding(wallet, ca, ecoKey) {
+  const isEvm = /^0x[a-fA-F0-9]{40}$/.test(String(ca || ''));
+
+  if (!isEvm) {
+    const bal = await fetchTokenBalance(wallet, ca);
+    return { ok: bal > 0, balance: bal, kind: 'sol' };
+  }
+
+  const evmAddr = await getEvmAddress();
+  if (!evmAddr) return { ok: true, balance: 1, kind: 'evm-bypass', reason: 'no-evm-wallet' };
+  try {
+    const bal = await fetchEvmTokenBalance(evmAddr, ca, ecoKey);
+    return { ok: bal > 0n, balance: bal > 0n ? 1 : 0, kind: 'evm' };
+  } catch (e) {
+    return { ok: true, balance: 1, kind: 'evm-bypass', reason: e.message };
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -758,13 +830,13 @@ function onSolBodyClick(id) {
    ═══════════════════════════════════════════════════════════════ */
 const ECOSYSTEMS = [
   { key: 'eth', name: 'Ethereum', symbol: 'ETH', color: '#627EEA', chainId: 'ethereum',
-    logo: 'https://i.postimg.cc/9XpN1Bhs/images-(12).png', coins: [] },
+    logo: 'https://i.postimg.cc/9XpN1Bhs/images-(12).png' },
   { key: 'bnb', name: 'BNB Chain', symbol: 'BNB', color: '#F3BA2F', chainId: 'bsc',
-    logo: 'https://i.postimg.cc/T29HQc6Z/images-(10).png', coins: [] },
+    logo: 'https://i.postimg.cc/T29HQc6Z/images-(10).png' },
   { key: 'avax', name: 'Avalanche', symbol: 'AVAX', color: '#E84142', chainId: 'avalanche',
-    logo: 'https://i.postimg.cc/KYJsxd7L/XTVCAVAX-600.png', coins: [] },
+    logo: 'https://i.postimg.cc/KYJsxd7L/XTVCAVAX-600.png' },
   { key: 'rh', name: 'Robinhood', symbol: 'RH', color: '#CCFF00', chainId: 'robinhood',
-    logo: 'https://i.postimg.cc/gcXdtDm9/images-(9)-(1).png', coins: [] }
+    logo: 'https://i.postimg.cc/gcXdtDm9/images-(9)-(1).png' }
 ];
 
 ECOSYSTEMS.forEach(e => {
@@ -1115,7 +1187,7 @@ async function onEcoCoinClick(ecoKey, coin) {
         ca: coin.address,
         logo_url: coin.logo_url || '',
         color: coin.color || eco.color,
-        emoji: '🪙'
+        emoji: `${ecoKey}|🪙`
       })
       .select()
       .single();
@@ -1169,7 +1241,7 @@ function showEcoBanner(eco) {
   if (!eco) { b.classList.remove('show'); return; }
   b.style.setProperty('--eco-color', eco.color);
   $('ecoIc').textContent = eco.symbol;
-  $('ecoName').textContent = eco.name;
+  $('ecoName').textContent = (CHAIN_CONFIG[eco.key]?.label) || eco.name;
   const count = ALL.filter(c => c.ecoKey === eco.key).length;
   $('ecoCount').textContent = count + ' COIN' + (count === 1 ? '' : 'S');
   b.classList.add('show');
@@ -1215,35 +1287,6 @@ $('ecoAddBtn').onclick = () => {
   if (!current || current.isSol) return;
   openAddCoin(current.key);
 };
-
-async function syncEcoCoins() {
-  const { data, error } = await sb.from('orbit_eco_coins').select('*');
-  if (error) throw error;
-  ECOSYSTEMS.forEach(e => { e.coins = []; });
-  (data || []).forEach(row => {
-    const eco = getEco(row.eco_key);
-    if (!eco) return;
-    eco.coins.push({
-      symbol: row.symbol || '?',
-      name: row.name || 'Unknown',
-      address: row.address,
-      color: row.color || eco.color,
-      logo_url: row.logo_url || ''
-    });
-  });
-}
-
-async function persistEcoCoin(ecoKey, coin) {
-  const { error } = await sb.from('orbit_eco_coins').insert({
-    eco_key: ecoKey,
-    symbol: coin.symbol || '?',
-    name: coin.name || 'Unknown',
-    address: coin.address,
-    color: coin.color || null,
-    logo_url: coin.logo_url || null
-  });
-  if (error) throw new Error(error.message || 'Failed to save coin');
-}
 
 async function addCoinForEco(ecoKey, address) {
   const eco = getEco(ecoKey);
@@ -2130,10 +2173,16 @@ function buildDock() {
     h('button', { class: 'chip add', onclick: () => $('modal').classList.add('open') }, '＋ New World')
   );
   const ecoKey = currentEcoKey();
+  const eco = ecoKey ? getEco(ecoKey) : null;
   ALL.filter(c => (c.ecoKey || null) === ecoKey).forEach(c => {
-    dock.append(h('button', { class: 'chip', onclick: () => select(c.id) },
+    const chip = h('button', { class: 'chip', onclick: () => select(c.id) },
       h('img', { src: c.src, alt: c.name }), c.name
-    ));
+    );
+    if (eco) {
+      chip.style.borderColor = hexA(eco.color, 0.45);
+      chip.style.boxShadow = `0 0 10px ${hexA(eco.color, 0.18)}`;
+    }
+    dock.append(chip);
   });
 }
 
@@ -2169,8 +2218,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
   const isGeneral = roomId === GENERAL_ROOM;
   const cObj = ALL.find(c => c.id === roomId);
   const isAdmin = walletAddress === ADMIN_WALLET;
-  const isEvmCa = /^0x[a-fA-F0-9]{40}$/.test(String(ca || ''));
-  const needsVerify = !isGeneral && !!ca && !isEvmCa;
+  const needsVerify = !isGeneral && !!ca;
 
   const actions = [];
   if (!isGeneral && ca) {
@@ -2227,10 +2275,10 @@ async function openChat(roomId, roomName, roomColor, ca) {
   const headEl = h('div', { class: 'head' }, avatarEl, h('div', { class: 't' }, ...textKids));
 
   if (statsEl && ca) {
-    renderTokenStats(roomId, ca, statsEl);
+    renderTokenStats(roomId, ca, statsEl, cObj?.ecoKey);
     currentStatsTimer = setInterval(() => {
       if (currentRoomId === roomId && statsEl.isConnected) {
-        renderTokenStats(roomId, ca, statsEl);
+        renderTokenStats(roomId, ca, statsEl, cObj?.ecoKey);
       }
     }, 60000);
   }
@@ -2348,21 +2396,21 @@ async function openChat(roomId, roomName, roomColor, ca) {
       return;
     }
     try {
-      const balance = await fetchTokenBalance(walletAddress, ca);
+      const result = await verifyHolding(walletAddress, ca, cObj?.ecoKey);
       if (reqId !== chatReqId) return;
       if (currentRoomId !== roomId) return;
       if (!input.isConnected) return;
 
-      if (balance > 0) {
-        input.disabled = false;
-        input.placeholder = `Message #${roomName}…`;
-        sb.rpc('orbit_sync_balance', {
-          p_wallet: walletAddress, p_room_id: roomId, p_balance: balance
-        }).catch(err => console.warn('[ORBITS] balance sync failed:', err.message));
-      } else {
+      if (!result.ok) {
         input.disabled = true;
         input.placeholder = "You don't hold this token.";
+        return;
       }
+      input.disabled = false;
+      input.placeholder = `Message #${roomName}…`;
+      sb.rpc('orbit_sync_balance', {
+        p_wallet: walletAddress, p_room_id: roomId, p_balance: result.balance
+      }).catch(err => console.warn('[ORBITS] balance sync failed:', err.message));
     } catch (e) {
       if (reqId !== chatReqId) return;
       if (currentRoomId !== roomId) return;
@@ -2377,10 +2425,6 @@ async function openChat(roomId, roomName, roomColor, ca) {
 
   if (needsVerify) {
     runBalanceCheck();
-  } else if (isEvmCa && walletAddress) {
-    sb.rpc('orbit_sync_balance', {
-      p_wallet: walletAddress, p_room_id: roomId, p_balance: 1
-    }).catch(() => {});
   }
 }
 
@@ -2489,7 +2533,6 @@ createBtn.onclick = async () => {
     if (ecoPair) {
       const ecoKey = EVM_CHAIN_TO_ECO[ecoPair.chainId];
       const eco = getEco(ecoKey);
-      pairs.filter(p => p.chainId === ecoPair.chainId);
       const sorted = pairs.filter(p => p.chainId === ecoPair.chainId)
         .sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
       const best = sorted[0] || ecoPair;
