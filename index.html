@@ -1539,7 +1539,7 @@ function g3() { return (Math.random() + Math.random() + Math.random() - 1.5) / 1
 
 function mkBelt(r, w, th, n, dir) {
   const B = {
-    r, n, dir, w: 0.34 * Math.pow(250 / r, 1.5) * 0.8,
+    r, n, dir, w: 0.34 * Math.pow(250 / r, 1.5) * 1.4,
     cx: new Float32Array(n), sx: new Float32Array(n), rr: new Float32Array(n), yy: new Float32Array(n),
     bx: new Float32Array(n), by: new Float32Array(n), bz: new Float32Array(n),
     ba: new Float32Array(n),
@@ -1557,9 +1557,9 @@ function mkBelt(r, w, th, n, dir) {
 
     const nv = 3 + Math.floor(Math.random() * 3);   // 3–5 sided rocks
     B.nv[i]   = nv;
-    B.sz[i]   = 0.7 + Math.random() * 1.7;          // size variance
+    B.sz[i]   = 0.5 + Math.random() * 0.8;          // smaller, separated
     B.rot[i]  = Math.random() * TAU;
-    B.spin[i] = (Math.random() - 0.5) * 2.4;
+    B.spin[i] = (Math.random() - 0.5) * 1.8;
     for (let k = 0; k < nv; k++) {
       const va = (k / nv) * TAU + (Math.random() - 0.5) * 0.6;
       const vr = 0.55 + Math.random() * 0.8;        // jagged radius
@@ -1617,8 +1617,8 @@ function layout() {
   sizeMul = clamp(Math.pow(outerR / 760, 0.4), 1, 1.8);
 
   BELTS = [];
-  if (LANES.length >= 6) BELTS.push(mkBelt(250 + 3.5 * 92, 16, 8, 900, 1));
-  BELTS.push(mkBelt(ECO_RING.radius, 24, 10, 1800, -1));
+  // Single coherent asteroid belt — no personal Solana ring
+  if (LANES.length >= 6) BELTS.push(mkBelt(250 + 3.5 * 92, 34, 16, 500, 1));
 }
 
 const defDist = () => clamp((outerR + 110) * 2.0, 1250, 7500);
@@ -1709,7 +1709,7 @@ function drawBelts(front, zs) {
       if (z < 40) continue;
       if ((z <= zs) !== front) continue;
 
-      const s   = clamp(F / z * 9, 1.8, 11) * B.sz[i];
+      const s   = clamp(F / z * 3, 0.8, 3.5) * B.sz[i];
       const ang = B.rot[i] + T * B.spin[i];
       const ca  = Math.cos(ang), sa = Math.sin(ang);
       const nv  = B.nv[i];
