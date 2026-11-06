@@ -1617,8 +1617,8 @@ function layout() {
   sizeMul = clamp(Math.pow(outerR / 760, 0.4), 1, 1.8);
 
   BELTS = [];
-  // Single coherent asteroid belt — no personal Solana ring
-  if (LANES.length >= 6) BELTS.push(mkBelt(250 + 3.5 * 92, 34, 16, 500, 1));
+  // Single OUTER asteroid belt — circles the eco orbit, always present on every chain
+  BELTS.push(mkBelt(ECO_RING.radius, 34, 16, 500, -1));
 }
 
 const defDist = () => clamp((outerR + 110) * 2.0, 1250, 7500);
