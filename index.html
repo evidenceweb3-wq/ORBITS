@@ -6,6 +6,7 @@
 <title>ORBITS — Social Universe</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+<script src="https://plugin.jup.ag/plugin-v1.js" data-preload defer></script>
 <style>
 :root{
   --ui:#e9ecff;--mut:#8b91b8;--c:#ffb347;--green:#22c55e;--red:#ef4444;
@@ -220,7 +221,7 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
    ═══════════════════════════════════════════════════════════════ */
 const SUPABASE_URL = 'https://lmakgwdrwdhjofgyovkj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_50c1y3L6RfgVDqZPETvUtA_yZQt5our';
-const HELIUS_RPC = 'https://mainnet.helius-rpc.com/?api-key=f600a1bb-1023-469b-8b21-1f424fe50931';
+const HELIUS_RPC = `${SUPABASE_URL}/functions/v1/solana-rpc`;
 const ADMIN_WALLET = '4XAqQmEcJW37ZUqDwwAWhuPy7xfQpTJTLoEUwmi51yuj';
 const PROJECT_CA = 'Fqbhnaxf1iTAA1WhRsWNEoR5TRxAaZ3TPgK5xRa9pump';
 const GENERAL_ROOM = '00000000-0000-0000-0000-000000000000';
@@ -229,9 +230,20 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let myUsername = localStorage.getItem('orbit_user') || 'Anon';
 let walletAddress = null;
+let solName = null;
+
+function shortAddr(a) { return a ? a.slice(0, 4) + '…' + a.slice(-4) : 'Anon'; }
+
+async function resolveSolName(wallet) {
+  try {
+    const { getFavoriteDomain } = await import('https://esm.sh/@bonfida/spl-name-service');
+    const conn = new solanaWeb3.Connection(HELIUS_RPC);
+    const res = await getFavoriteDomain(conn, new solanaWeb3.PublicKey(wallet));
+    if (res?.reverse) solName = res.reverse.endsWith('.sol') ? res.reverse : res.reverse + '.sol';
+  } catch (e) { /* no .sol */ }
+}
 
 const phantomBtn = document.getElementById('phantomBtn');
-
 /* ═══════════════════════════════════════════════════════════════
    1. UTILITIES
    ═══════════════════════════════════════════════════════════════ */
@@ -255,6 +267,39 @@ function hexA(hex, a) {
   const n = parseInt(hex.replace('#', ''), 16);
   const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
   return `rgba(${r},${g},${b},${a})`;
+}
+function hexRGB(hex) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+const _ringPalette = new Array(96).fill('#ffffff');
+function refreshRingPalette() {
+  const seg = TAU / 4;
+  const colors = [];
+  for (let s = 0; s < 4; s++) {
+    const b = BODIES.find(x => x.slot === s);
+    if (!b) { colors.push([180, 180, 200]); continue; }
+    const c = b.isSol ? '#14F195' : (getEco(b.key)?.color || '#ffffff');
+    colors.push(hexRGB(c));
+  }
+  const N = _ringPalette.length;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * TAU;
+    const si = Math.floor(a / seg) % 4;
+    const ni = (si + 1) % 4;
+    const t = (a - si * seg) / seg;
+    const c1 = colors[si], c2 = colors[ni];
+    const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+    const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+    const bb = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+    _ringPalette[i] = `rgb(${r},${g},${bb})`;
+  }
+}
+function ringColorAt(worldAngle) {
+  const a = ((worldAngle - ringRotation) % TAU + TAU) % TAU;
+  const N = _ringPalette.length;
+  return _ringPalette[Math.floor((a / TAU) * N) % N];
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -314,29 +359,34 @@ function updateAuthUI() {
 
 async function connectWallet() {
   const provider = window.phantom?.solana || window.solana;
-  if (!provider || !provider.isPhantom) { showToast('Phantom wallet not found! Install it first.', true); return; }
+  if (!provider) { showToast('Install Phantom to connect', true); return; }
   try {
-    phantomBtn.textContent = 'CONNECTING…';
-    const resp = await withTimeout(provider.connect({ onlyIfTrusted: false }), 60000, 'Wallet connect');
+    const resp = await provider.connect();
     walletAddress = resp.publicKey.toString();
     localStorage.setItem('orbit_wallet', walletAddress);
     updateAuthUI();
     showToast('Wallet connected ✓');
     if (presenceChannel) presenceChannel.track({ online_at: new Date().toISOString(), wallet: walletAddress });
-    if (myUsername === 'Anon') {
-      const name = prompt('Wallet connected! Choose a username:');
-      myUsername = (name && name.trim()) || 'Anon' + Math.floor(Math.random() * 1000);
-      localStorage.setItem('orbit_user', myUsername);
-    }
+
+    try {
+      const msg = new TextEncoder().encode(
+        `ORBITS login\nDomain: ${location.host}\nWallet: ${walletAddress}\nNonce: ${crypto.randomUUID()}\nIssued At: ${new Date().toISOString()}`
+      );
+      const sig = await provider.signMessage(msg, 'utf8');
+      await sb.from('orbit_auth').upsert({
+        wallet: walletAddress,
+        signature: btoa(String.fromCharCode(...sig)),
+        verified_at: new Date().toISOString()
+      }, { onConflict: 'wallet' });
+    } catch (e) { console.warn('[ORBITS] SIWS skipped:', e.message); }
+
+    await resolveSolName(walletAddress);
+
     if (selId && selId !== 'core' && !ECOSYSTEMS.find(e => e.key === selId)) {
       const room = ALL.find(c => c.id === selId);
       if (room) openChat(room.id, room.name, room.color, room.ca);
     }
-  } catch (err) {
-    console.error(err);
-    showToast('Connection failed: ' + (err.message || 'User rejected'), true);
-    updateAuthUI();
-  }
+  } catch (e) { showToast('Connection failed', true); }
 }
 
 async function disconnectWallet() {
@@ -361,6 +411,7 @@ if (localStorage.getItem('orbit_wallet')) {
   walletAddress = localStorage.getItem('orbit_wallet');
   const provider = window.phantom?.solana || window.solana;
   if (provider) provider.connect({ onlyIfTrusted: true }).catch(() => {});
+  resolveSolName(walletAddress);
 }
 updateAuthUI();
 
@@ -465,27 +516,16 @@ const balanceCache = new Map();
 const BALANCE_TTL = 60000;
 
 async function heliusRpc(method, params, timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs || 8000);
-  try {
-    const res = await fetch(HELIUS_RPC, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
-      signal: controller.signal
-    });
-    if (!res.ok) {
-      if (res.status === 429) throw new Error('Rate limited');
-      if (res.status === 401 || res.status === 403) throw new Error('Invalid RPC key');
-      throw new Error('RPC HTTP ' + res.status);
-    }
-    const json = await res.json();
-    if (json.error) throw new Error(json.error.message || 'RPC error');
-    return json.result;
-  } catch (e) {
-    if (e.name === 'AbortError') throw new Error(method + ' timed out');
-    throw e;
-  } finally { clearTimeout(timer); }
+  const res = await fetch(HELIUS_RPC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify({ method, params }),
+    signal: AbortSignal.timeout(timeoutMs || 8000)
+  });
+  if (!res.ok) throw new Error('RPC HTTP ' + res.status);
+  const j = await res.json();
+  if (j.error) throw new Error(j.error.message || 'RPC error');
+  return j.result;
 }
 
 async function fetchTokenBalance(wallet, mint) {
@@ -536,50 +576,7 @@ function chainIdOf(ecoKey) {
   return cfg ? cfg.chainId : 'solana';
 }
 
-async function getEvmAddress() {
-  try {
-    const eth = window.phantom?.ethereum || window.ethereum;
-    if (!eth) return null;
-    const accs = await eth.request({ method: 'eth_accounts' });
-    return accs?.[0] || null;
-  } catch { return null; }
-}
 
-async function fetchEvmTokenBalance(wallet, tokenAddress, ecoKey) {
-  const rpc = EVM_RPCS[ecoKey];
-  if (!rpc) throw new Error('No public RPC for ' + (CHAIN_CONFIG[ecoKey]?.label || ecoKey));
-  const data = '0x70a08231' + wallet.toLowerCase().replace('0x', '').padStart(64, '0');
-  const res = await fetch(rpc, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'eth_call',
-      params: [{ to: tokenAddress, data }, 'latest']
-    })
-  });
-  if (!res.ok) throw new Error('RPC HTTP ' + res.status);
-  const json = await res.json();
-  if (json.error) throw new Error(json.error.message || 'RPC error');
-  return BigInt(json.result || '0x0');
-}
-
-async function verifyHolding(wallet, ca, ecoKey) {
-  const isEvm = /^0x[a-fA-F0-9]{40}$/.test(String(ca || ''));
-
-  if (!isEvm) {
-    const bal = await fetchTokenBalance(wallet, ca);
-    return { ok: bal > 0, balance: bal, kind: 'sol' };
-  }
-
-  const evmAddr = await getEvmAddress();
-  if (!evmAddr) return { ok: true, balance: 1, kind: 'evm-bypass', reason: 'no-evm-wallet' };
-  try {
-    const bal = await fetchEvmTokenBalance(evmAddr, ca, ecoKey);
-    return { ok: bal > 0n, balance: bal > 0n ? 1 : 0, kind: 'evm' };
-  } catch (e) {
-    return { ok: true, balance: 1, kind: 'evm-bypass', reason: e.message };
-  }
-}
 
 /* ═══════════════════════════════════════════════════════════════
    6.6 SOL ASSETS
@@ -869,7 +866,7 @@ function currentEcoKey() {
 }
 
 function layoutEcosystems() {
-  ECO_RING.radius = outerR * 1.55;
+  ECO_RING.radius = outerR * 1.18;
   ECO_RING.elevation = 0;
   outerR = Math.max(outerR, ECO_RING.radius * 1.08);
 }
@@ -955,6 +952,7 @@ function swapCenterTo(targetKey) {
   sheet.classList.remove('open');
   currentRoomId = null;
   if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
+  if (currentAccessChannel) { sb.removeChannel(currentAccessChannel); currentAccessChannel = null; }
   if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
 
     const tempSlot = current.slot;
@@ -1478,11 +1476,17 @@ function hyd(d) {
 async function syncAll() {
   const { data: rooms, error } = await sb.from('orbit_communities').select('*').neq('id', GENERAL_ROOM);
   if (error) throw error;
+
+  const { data: accessRows } = await sb.from('room_access').select('room_id').eq('status', 'granted');
+  const countMap = {};
+  (accessRows || []).forEach(r => { countMap[r.room_id] = (countMap[r.room_id] || 0) + 1; });
+
   const currentIds = new Set((rooms || []).map(r => r.id));
   Object.keys(HY).forEach(k => { if (!currentIds.has(k)) delete HY[k]; });
   ALL = (rooms || []).map(r => hyd({
     id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji,
-    members: 1, ca: r.ca, logo_url: r.logo_url
+    members: countMap[r.id] || 0,
+    ca: r.ca, logo_url: r.logo_url
   }));
   byId = {};
   ALL.forEach(c => byId[c.id] = c);
@@ -1519,7 +1523,8 @@ function mkBelt(r, w, th, n, dir) {
   const B = {
     r, n, dir, w: 0.34 * Math.pow(250 / r, 1.5) * 0.8,
     cx: new Float32Array(n), sx: new Float32Array(n), rr: new Float32Array(n), yy: new Float32Array(n),
-    bx: new Float32Array(n), by: new Float32Array(n), bz: new Float32Array(n)
+    bx: new Float32Array(n), by: new Float32Array(n), bz: new Float32Array(n),
+    ba: new Float32Array(n)
   };
   for (let i = 0; i < n; i++) {
     const a = Math.random() * TAU;
@@ -1528,7 +1533,6 @@ function mkBelt(r, w, th, n, dir) {
   }
   return B;
 }
-
 function layout() {
   LANES.length = 0;
   const ecoKey = currentEcoKey();
@@ -1547,7 +1551,7 @@ function layout() {
       c.lane = L;
       c.toff = k / L.members.length * TAU + L.idx * 1.7;
       if (c.off === undefined) c.off = c.toff;
-      c.baseSize = clamp(30 + Math.log10((c.members || 1) + 10) * 6, 36, 54);
+      c.baseSize = clamp(30 + Math.log10((c.members || 0) + 10) * 8, 36, 72);
     });
   }
 
@@ -1572,13 +1576,13 @@ function layout() {
     if (r > maxR) maxR = r;
   }
   outerR = maxR;
+
+  layoutEcosystems();
   sizeMul = clamp(Math.pow(outerR / 760, 0.4), 1, 1.8);
 
   BELTS = [];
   if (LANES.length >= 6) BELTS.push(mkBelt(250 + 3.5 * 92, 16, 8, 900, 1));
-  BELTS.push(mkBelt(outerR + 80, 26, 12, 1300, -1));
-
-  layoutEcosystems();
+  BELTS.push(mkBelt(ECO_RING.radius, 24, 10, 1800, -1));
 }
 
 const defDist = () => clamp((outerR + 110) * 2.0, 1250, 7500);
@@ -1653,20 +1657,22 @@ function projBelts() {
     const ang = B.dir * T * B.w, cr = Math.cos(ang), sr = Math.sin(ang);
     for (let i = 0; i < B.n; i++) {
       const c0 = B.cx[i], s0 = B.sx[i], r = B.rr[i];
-      P(r * (c0 * cr - s0 * sr), B.yy[i], r * (s0 * cr + c0 * sr));
+      const wx = r * (c0 * cr - s0 * sr);
+      const wz = r * (s0 * cr + c0 * sr);
+      P(wx, B.yy[i], wz);
       B.bx[i] = PX; B.by[i] = PY; B.bz[i] = PZ;
+      B.ba[i] = Math.atan2(wz, wx);
     }
   }
 }
 function drawBelts(front, zs) {
-  ctx.globalAlpha = 0.55;
-  let k = 0;
+  ctx.globalAlpha = 0.75;
   for (const B of BELTS) {
-    ctx.fillStyle = (k++ % 2) ? '#9fb4d8' : '#c8b79a';
     for (let i = 0; i < B.n; i++) {
       const z = B.bz[i];
       if (z < 40) continue;
       if ((z <= zs) !== front) continue;
+      ctx.fillStyle = ringColorAt(B.ba[i]);
       const s = clamp(F / z * 3.2, 1, 2.4);
       ctx.fillRect(B.bx[i], B.by[i], s, s);
     }
@@ -1773,7 +1779,7 @@ function drawPlanet(c, sp) {
     ctx.globalAlpha = 1;
   }
 
-  const nm = clamp(Math.floor((c.members || 0) / 2200), 0, 3);
+  const nm = clamp(Math.floor((c.members || 0) / 1000), 0, 3);
   const moons = [];
   if (r > 9) {
     for (let k = 0; k < nm; k++) {
@@ -1891,6 +1897,7 @@ function frame(now) {
   shakeAmount = Math.max(0, shakeAmount - dt * 3.2);
   coloredFlash = Math.max(0, coloredFlash - dt * 2.2);
   ringRotation += dt * 0.02;
+  refreshRingPalette();
 
   caCam.cy = Math.cos(cam.yaw); caCam.sy = Math.sin(cam.yaw);
   caCam.cp = Math.cos(cam.pitch); caCam.sp = Math.sin(cam.pitch);
@@ -2191,6 +2198,7 @@ function buildDock() {
    ═══════════════════════════════════════════════════════════════ */
 let currentRoomId = null;
 let currentChannel = null;
+let currentAccessChannel = null;
 let currentStatsTimer = null;
 let chatReqId = 0;
 
@@ -2199,7 +2207,7 @@ function makeMsgEl(m, isMine) {
     h('div', { class: 'msg-av', style: `background:${hashColor(m.username || '?')}` }, initials(m.username || '?')),
     h('div', { class: 'msg-body' },
       h('div', { class: 'msg-head' },
-        h('b', null, m.username || 'Anon'),
+               h('b', null, m.sol_name || m.username || shortAddr(m.wallet)),
         h('span', null, relTime(m.created_at))
       ),
       h('p', null, m.content)
@@ -2213,6 +2221,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
   sheet.style.setProperty('--c', roomColor);
 
   if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
+  if (currentAccessChannel) { sb.removeChannel(currentAccessChannel); currentAccessChannel = null; }
   if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
 
   const isGeneral = roomId === GENERAL_ROOM;
@@ -2223,12 +2232,13 @@ async function openChat(roomId, roomName, roomColor, ca) {
   const actions = [];
   if (!isGeneral && ca) {
     actions.push(h('button', {
-      class: 'icon-btn', title: 'Copy token CA',
-      onclick: () => navigator.clipboard.writeText(ca).then(
-        () => showToast('Token CA copied 📋'),
-        () => showToast('Failed to copy', true)
-      )
-    }, '📋'));
+      class: 'icon-btn', title: 'Trade token',
+      onclick: () => window.Jupiter.init({
+        displayMode: 'modal',
+        endpoint: HELIUS_RPC,
+        formProps: { initialOutputMint: ca }
+      })
+    }, '⇄'));
   }
   if (isAdmin && !isGeneral) {
     actions.push(h('button', {
@@ -2293,15 +2303,14 @@ async function openChat(roomId, roomName, roomColor, ca) {
     jumpBtn.classList.toggle('show', !nearBottom);
   });
 
-  currentChannel = sb.channel('room_' + roomId)
-    .on('postgres_changes', {
-      event: 'INSERT', schema: 'public', table: 'orbit_messages',
-      filter: `community_id=eq.${roomId}`
-    }, payload => {
-      if (payload.new.community_id !== currentRoomId) return;
+  await sb.realtime.setAuth();
+  currentChannel = sb.channel(`room:${roomId}:messages`, { config: { private: true } })
+    .on('broadcast', { event: 'INSERT' }, (payload) => {
+      const m = payload.payload?.record ?? payload.payload;
+      if (!m || m.community_id !== currentRoomId) return;
       const loader = feed.querySelector('.loading');
       if (loader) loader.remove();
-      feed.append(makeMsgEl(payload.new, payload.new.username === myUsername));
+      feed.append(makeMsgEl(m, m.wallet && walletAddress && m.wallet === walletAddress));
       const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 200;
       if (nearBottom) feed.scrollTop = feed.scrollHeight;
       else jumpBtn.classList.add('show');
@@ -2319,23 +2328,10 @@ async function openChat(roomId, roomName, roomColor, ca) {
 
   const sendBtn = h('button', null, 'Send');
 
-  const retryBtn = h('button', {
-    style: 'display:none;background:linear-gradient(135deg,var(--c),#ffd27a);border:0;border-radius:12px;color:#0a0b16;font:800 12px system-ui;padding:0 14px;cursor:pointer;white-space:nowrap;flex-shrink:0;',
-    onclick: () => {
-      retryBtn.style.display = 'none';
-      input.disabled = true;
-      input.placeholder = 'Retrying…';
-      runBalanceCheck();
-    }
-  }, '↻ Retry');
-
   if (needsVerify) {
     input.disabled = true;
-    input.placeholder = walletAddress
-      ? 'Verifying token balance…'
-      : 'Connect Phantom to verify holdings.';
+    input.placeholder = walletAddress ? 'Checking access…' : 'Connect a wallet to verify holdings.';
   }
-
   const send = async () => {
     const txt = input.value.trim();
     if (!txt || input.disabled) return;
@@ -2346,7 +2342,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
     const { data: rpcData, error } = await sb.rpc('orbit_send_message', {
       p_room_id: roomId,
       p_wallet: walletAddress || 'guest',
-      p_username: myUsername,
+      p_username: solName || (walletAddress ? shortAddr(walletAddress) : myUsername),
       p_content: txt
     });
 
@@ -2367,8 +2363,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
     feedWrap,
     h('div', { class: 'compose' },
       h('div', { class: 'compose-wrap' }, input, charCount),
-      sendBtn,
-      retryBtn
+      sendBtn
     )
   );
   setTimeout(() => { feed.scrollTop = feed.scrollHeight; }, 60);
@@ -2383,48 +2378,46 @@ async function openChat(roomId, roomName, roomColor, ca) {
 
   feed.innerHTML = '';
   if (data && data.length) {
-    data.forEach(m => feed.append(makeMsgEl(m, m.username === myUsername)));
+    data.forEach(m => feed.append(makeMsgEl(m, m.wallet && walletAddress && m.wallet === walletAddress)));
   } else {
     feed.append(h('div', { class: 'loading' }, 'Quiet orbit. Be the first to post.'));
   }
   feed.scrollTop = feed.scrollHeight;
 
-  async function runBalanceCheck() {
-    if (!walletAddress) {
-      input.disabled = true;
-      input.placeholder = 'Connect Phantom to verify holdings.';
-      return;
-    }
-    try {
-      const result = await verifyHolding(walletAddress, ca, cObj?.ecoKey);
-      if (reqId !== chatReqId) return;
-      if (currentRoomId !== roomId) return;
-      if (!input.isConnected) return;
+  if (needsVerify && walletAddress) {
+    const { data: row } = await sb.from('room_access')
+      .select('status').eq('room_id', roomId).eq('wallet', walletAddress).maybeSingle();
 
-      if (!result.ok) {
-        input.disabled = true;
-        input.placeholder = "You don't hold this token.";
-        return;
+        if (row) {
+      const granted = row.status === 'granted';
+      input.disabled = !granted;
+      input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
+    } else {
+      const { data: res } = await sb.functions.invoke('check_access', { body: { wallet: walletAddress, room_id: roomId, ca } });
+      if (res && res.status) {
+        const granted = res.status === 'granted';
+        input.disabled = !granted;
+        input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
       }
-      input.disabled = false;
-      input.placeholder = `Message #${roomName}…`;
-      sb.rpc('orbit_sync_balance', {
-        p_wallet: walletAddress, p_room_id: roomId, p_balance: result.balance
-      }).catch(err => console.warn('[ORBITS] balance sync failed:', err.message));
-    } catch (e) {
-      if (reqId !== chatReqId) return;
-      if (currentRoomId !== roomId) return;
-      if (!input.isConnected) return;
-      console.warn('[ORBITS] balance check failed:', e.message);
-      input.disabled = true;
-      const short = e.message.length > 40 ? e.message.slice(0, 40) + '…' : e.message;
-      input.placeholder = 'Balance check failed: ' + short;
-      retryBtn.style.display = '';
     }
-  }
 
-  if (needsVerify) {
-    runBalanceCheck();
+    await sb.realtime.setAuth();
+    currentAccessChannel = sb.channel(`access:${roomId}`, { config: { private: true } })
+      .on('broadcast', { event: 'INSERT' }, (p) => {
+        const d = p.payload?.record ?? p.payload;
+        if (!d || d.wallet !== walletAddress) return;
+        const granted = d.status === 'granted';
+        input.disabled = !granted;
+        input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
+      })
+      .on('broadcast', { event: 'UPDATE' }, (p) => {
+        const d = p.payload?.record ?? p.payload;
+        if (!d || d.wallet !== walletAddress) return;
+        const granted = d.status === 'granted';
+        input.disabled = !granted;
+        input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
+      })
+      .subscribe();
   }
 }
 
@@ -2454,10 +2447,11 @@ function select(id) {
   wantCenY = id ? H * 0.25 : H * 0.5;
   dock.classList.toggle('hide', !!id);
 
-  if (!id) {
+    if (!id) {
     currentRoomId = null;
     sheet.classList.remove('open');
     if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
+    if (currentAccessChannel) { sb.removeChannel(currentAccessChannel); currentAccessChannel = null; }
     if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
     waves.push({ t0: RT, color: '#ffb347' });
     return;
@@ -2518,69 +2512,20 @@ const EVM_CHAIN_TO_ECO = { ethereum: 'eth', bsc: 'bnb', robinhood: 'rh', avalanc
 createBtn.onclick = async () => {
   const ca = caInput.value.trim();
   if (!ca || ca.length < 30) { showToast('Invalid CA', true); return; }
-
   createBtn.disabled = true;
   createBtn.textContent = 'SCANNING BLOCKCHAIN…';
-
   try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
-    const json = await res.json();
-    const pairs = json.pairs || [];
-    if (!pairs.length) throw new Error('Token not found on DexScreener');
-
-    // Route EVM-chain tokens to their eco instead of creating a chat planet
-    const ecoPair = pairs.find(p => EVM_CHAIN_TO_ECO[p.chainId]);
-    if (ecoPair) {
-      const ecoKey = EVM_CHAIN_TO_ECO[ecoPair.chainId];
-      const eco = getEco(ecoKey);
-      const sorted = pairs.filter(p => p.chainId === ecoPair.chainId)
-        .sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
-      const best = sorted[0] || ecoPair;
-
-      const newAddr = (best.baseToken?.address || ca).toLowerCase();
-      if (ALL.find(c => c.ca && c.ca.toLowerCase() === newAddr)) {
-        throw new Error(`Already added to ${eco.name}`);
-      }
-      const { error: insErr } = await sb.from('orbit_communities').insert({
-        name: best.baseToken?.name || 'Unknown',
-        tagline: best.baseToken?.symbol || 'TOKEN',
-        ca: best.baseToken?.address || ca,
-        logo_url: best.info?.imageUrl || '',
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        emoji: `${ecoKey}|🪙`
-      });
-      if (insErr) throw insErr;
-
-      await refreshCommunities();
-      triggerCoinAddFX(eco);
-      modal.classList.remove('open');
-      caInput.value = '';
-      showToast(`${best.baseToken?.symbol || 'Token'} added to ${eco.name} ✓`);
-      if (ecoKey !== currentEcoKey()) swapCenterTo(ecoKey);
-      showEcoBanner(eco);
-      return;
-    }
-
-    // Otherwise: normal chat-planet creation
-    pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
-    const pair = pairs[0];
-
-    const name = pair.baseToken?.name || 'Unknown';
-    const symbol = pair.baseToken?.symbol || 'TOKEN';
-    const logo = pair.info?.imageUrl || '';
-    const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-
-    const { error } = await sb.from('orbit_communities').insert({
-      name, tagline: symbol, ca, logo_url: logo, color, emoji: '🪐'
-    });
-    if (error) throw error;
-
+    const { data, error } = await sb.functions.invoke('create_room', { body: { ca } });
+    if (error) throw new Error(error.message);
     modal.classList.remove('open');
     caInput.value = '';
     showToast('Planet launched 🚀');
-    waves.push({ t0: RT, color });
-
     await refreshCommunities();
+    if (data?.room_id) {
+      const blink = `${SUPABASE_URL}/functions/v1/action-launch?room=${data.room_id}`;
+      navigator.clipboard.writeText(blink).catch(() => {});
+      showToast('Launch Blink copied');
+    }
   } catch (err) {
     showToast('Error: ' + err.message, true);
   } finally {
