@@ -1044,8 +1044,9 @@ function drawBody(body, t, list) {
   const distFromCenter = Math.hypot(body.wx, body.wy, body.wz);
   const centerness = clamp(1 - distFromCenter / (ECO_RING.radius * 0.85), 0, 1);
 
-  const ringR = Math.max(80 * ps, 18);
-  const centerR = Math.max(235 * ps, 38);
+  // maxCoinBase is already computed in frame() before draw
+  const ringR = Math.max(110 * ps, 30);
+  const centerR = Math.max(maxCoinBase * sizeMul * 1.35 * ps, 100);
   const R = ringR + (centerR - ringR) * centerness;
 
   if (distFromCenter > 30) {
@@ -1614,7 +1615,7 @@ const HY = {};
 let ALL = [], byId = {};
 const LANES = [];
 let BELTS = [];
-let outerR = 340, sizeMul = 1;
+let outerR = 340, sizeMul = 1, maxCoinBase = 0;
 
 function hyd(d) {
   if (HY[d.id]) return HY[d.id];
@@ -1742,10 +1743,10 @@ function mkBelt(r, w, th, n, dir) {
     return B;
 }
 function sizeFromMcap(mcap) {
-  if (!mcap || mcap <= 0) return 58;                // no market data yet → solid default
-  const logM = Math.log10(Math.max(mcap, 1e4));     // floor at $10K
-  const t = clamp((logM - 4) / 6, 0, 1);            // $10K → 0 … $10B → 1
-  return Math.round(50 + Math.pow(t, 0.92) * 95);   // $10K ≈ 50 … $10B ≈ 145
+  if (!mcap || mcap <= 0) return 60;                 // no market data yet → clean baseline
+  const logM = Math.log10(Math.max(mcap, 1e4));      // floor at $10K
+  const t = clamp((logM - 4) / 6, 0, 1);             // $10K → 0 … $10B → 1
+  return Math.round(56 + Math.pow(t, 1.7) * 330);    // $10K ≈ 56 … $10B ≈ 386
 }
 function layout() {
   LANES.length = 0;
@@ -2195,6 +2196,12 @@ function frame(now) {
     if (c.pend && RT >= c.born) { c.pend = false; burst(c); }
   }
 
+  // Compute biggest coin now, before SUN_SCREEN.r is used this frame
+  maxCoinBase = 0;
+  for (const c of ALL) {
+    if (c.baseSize && c.baseSize > maxCoinBase) maxCoinBase = c.baseSize;
+  }
+
   const ecoCenter = BODIES.find(b => !b.isSol && b.isCenter);
 
   let tgt = [0, 0, 0];
@@ -2250,7 +2257,7 @@ function frame(now) {
 
   P(0, 0, 0);
   const sp = { x: PX, y: PY, z: PZ, s: PS };
-  SUN_SCREEN.x = PX; SUN_SCREEN.y = PY; SUN_SCREEN.z = PZ; SUN_SCREEN.r = 235 * PS;
+  SUN_SCREEN.x = PX; SUN_SCREEN.y = PY; SUN_SCREEN.z = PZ; SUN_SCREEN.r = Math.max(maxCoinBase * sizeMul * 1.35 * PS, 100);
 
   const list = [];
 
