@@ -1174,6 +1174,49 @@ function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
 
 }
 
+function drawOrbitalPlane(t) {
+  if (!outerR) return;
+  const R = outerR * 1.18;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  // Faint filled disc — the floor of the universe
+  ctx.beginPath();
+  let pen = false;
+  for (let k = 0; k <= 96; k++) {
+    const a = k / 96 * TAU;
+    P(R * Math.cos(a), 0, R * Math.sin(a));
+    if (PZ < 30) { pen = false; continue; }
+    if (pen) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); pen = true; }
+  }
+  ctx.closePath();
+  const discGrad = ctx.createRadialGradient(W / 2, cenY, 0, W / 2, cenY, Math.max(W, H) * 0.55);
+  discGrad.addColorStop(0,    'rgba(95, 120, 255, 0.045)');
+  discGrad.addColorStop(0.55, 'rgba(130, 90, 255, 0.026)');
+  discGrad.addColorStop(1,    'rgba(60, 90, 200, 0)');
+  ctx.fillStyle = discGrad;
+  ctx.fill();
+
+  // Concentric guide rings — reinforce the flatness with breathing pulses
+  for (let i = 1; i <= 14; i++) {
+    const rr = R * (i / 14);
+    if (rr < 40) continue;
+    ctx.beginPath();
+    let p2 = false;
+    for (let k = 0; k <= 72; k++) {
+      const a = k / 72 * TAU;
+      P(rr * Math.cos(a), 0, rr * Math.sin(a));
+      if (PZ < 30) { p2 = false; continue; }
+      if (p2) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); p2 = true; }
+    }
+    const alpha = 0.012 + Math.sin(t * 0.7 + i * 0.5) * 0.006;
+    ctx.strokeStyle = `rgba(150, 175, 255, ${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawEcoRing(t) {
   if (!ECO_RING.radius) return;
   ctx.save();
@@ -1639,22 +1682,23 @@ async function refreshAllStats() {
 }
 
 function laneDef(i) {
-  const r = 340 + i * 116;
-  const e = 0.03 + (Math.sin(i * 12.9898) * 0.5 + 0.5) * 0.09;
-  const inc = (i % 2 ? -1 : 1) * (0.06 + (Math.sin(i * 78.233) * 0.5 + 0.5) * 0.24);
-  const node = i * 2.399963;
+  // FLAT COPLANAR ORBITS — every lane lies exactly on the XZ plane (y = 0).
+  // Concentric circles, no inclination, no node twist, no eccentric wiggle.
+  const r = 380 + i * 155;                 // wider breathing room between lanes
   return {
-    idx: i, r, e, b: Math.sqrt(1 - e * e), inc, node,
-    ci: Math.cos(inc), si: Math.sin(inc), cn: Math.cos(node), sn: Math.sin(node),
-    w: 0.34 * Math.pow(250 / r, 1.5), dir: i % 2 ? -1 : 1, members: []
+    idx: i,
+    r,
+    e: 0,                                  // circular
+    b: 1,
+    w: 0.34 * Math.pow(250 / r, 1.5),      // Kepler-ish speed, inner lanes faster
+    dir: i % 2 ? -1 : 1,                   // adjacent lanes counter-rotate
+    members: []
   };
 }
 function lanePt(L, E, o) {
-  const x = L.r * (Math.cos(E) - L.e), z0 = L.r * L.b * Math.sin(E);
-  const y = z0 * L.si, z = z0 * L.ci;
-  o[0] = x * L.cn + z * L.sn;
-  o[1] = y;
-  o[2] = -x * L.sn + z * L.cn;
+  o[0] = L.r * Math.cos(E);
+  o[1] = 0;                                // ← all orbits lie on the plane
+  o[2] = L.r * Math.sin(E);
   return o;
 }
 function kep(M, e, it) {
@@ -1732,7 +1776,7 @@ function layout() {
     const k = c.ecoKey || '__sol';
     if (counts[k] !== undefined) counts[k]++;
   }
-  let maxR = 340;
+  let maxR = 380;
   for (const k in counts) {
     const n = counts[k];
     if (!n) continue;
@@ -1743,7 +1787,7 @@ function layout() {
       maxLane = ln;
       ln++;
     }
-    const r = (340 + maxLane * 116) * 1.12;
+    const r = (380 + maxLane * 155) * 1.12;
     if (r > maxR) maxR = r;
   }
   outerR = maxR;
@@ -1752,8 +1796,8 @@ function layout() {
   sizeMul = clamp(Math.pow(outerR / 760, 0.4), 1, 1.8);
 
   BELTS = [];
-  // Single OUTER asteroid belt — circles the eco orbit, always present on every chain
-  BELTS.push(mkBelt(ECO_RING.radius, 52, 24, 800, -1));
+  // Flat Saturn-style razor-thin wide halo on the same plane as everything else
+  BELTS.push(mkBelt(ECO_RING.radius, 90, 3.5, 1000, -1));
 }
 
 const defDist = () => clamp((outerR + 110) * 2.0, 1250, 7500);
@@ -1989,7 +2033,7 @@ function drawPlanet(c, sp, alphaMul = 1) {
     for (let k = 0; k < nm; k++) {
       const am = T * (1.1 + 0.5 * k) + k * 2.1;
       const rr = sz * (1.9 + 0.8 * k);
-      P(c.pos[0] + rr * Math.cos(am), c.pos[1] + rr * 0.35 * Math.sin(am + k), c.pos[2] + rr * Math.sin(am));
+      P(c.pos[0] + rr * Math.cos(am), c.pos[1] + rr * 0.10 * Math.sin(am + k), c.pos[2] + rr * Math.sin(am));
       if (PZ > 30) moons.push({ x: PX, y: PY, z: PZ, r: Math.max(2.4, sz * 0.2 * PS) * sc });
     }
   }
@@ -2202,6 +2246,7 @@ function frame(now) {
 
   drawStarsBg(now / 1000);
   drawShootingStars(dt);
+  drawOrbitalPlane(now / 1000);
 
   P(0, 0, 0);
   const sp = { x: PX, y: PY, z: PZ, s: PS };
