@@ -1739,7 +1739,13 @@ function mkBelt(r, w, th, n, dir) {
       B.pvy[i * 5 + k] = Math.sin(va) * vr;
     }
   }
-  return B;
+    return B;
+}
+function sizeFromMcap(mcap) {
+  if (!mcap || mcap <= 0) return 58;                // no market data yet → solid default
+  const logM = Math.log10(Math.max(mcap, 1e4));     // floor at $10K
+  const t = clamp((logM - 4) / 6, 0, 1);            // $10K → 0 … $10B → 1
+  return Math.round(50 + Math.pow(t, 0.92) * 95);   // $10K ≈ 50 … $10B ≈ 145
 }
 function layout() {
   LANES.length = 0;
@@ -1759,14 +1765,8 @@ function layout() {
       c.lane = L;
       c.toff = k / L.members.length * TAU + L.idx * 1.7;
       if (c.off === undefined) c.off = c.toff;
-      // Size driven by market cap (log scale) — smallest = 36, cap at 90
-      const mcap = c.mcap || 0;
-      if (mcap > 0) {
-        const logM = Math.log10(Math.max(mcap, 1000));
-        c.baseSize = clamp(36 + (logM - 3) * 10, 36, 90);
-      } else {
-        c.baseSize = 44;
-      }
+      // Size driven by market cap (log scale) — small coins stay chunky, big caps clearly dominate
+      c.baseSize = sizeFromMcap(c.mcap);
     });
   }
 
