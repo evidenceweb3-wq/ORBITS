@@ -1021,7 +1021,6 @@ function swapCenterTo(targetKey) {
 
   // Recenter the new body — reset any offset left from a previous open chat
   wantCenY = H * 0.5;
-  want.dist = Math.max(600, defDist() * 0.65);
 
   const color = target.isSol ? '#14F195' : getEco(target.key).color;
   triggerSwapFX(color);
@@ -1261,7 +1260,6 @@ function openEcoChat(room, ecoKey) {
 
   selId = room.id;
   wantCenY = H * 0.25;
-  want.dist = Math.max(want.dist, 800);   // ensure zoomed enough
   dock.classList.add('hide');
   sheet.classList.add('open');
   openChat(room.id, room.name, room.color, room.ca);
@@ -1484,6 +1482,7 @@ addCoinBtn.onclick = async () => {
 
   layout();
   buildDock();
+  want.dist = Math.max(want.dist, defDist());  // ensure new coin fits on screen
   refreshAllStats().catch(() => {});
 };
 
@@ -1693,7 +1692,7 @@ async function refreshAllStats() {
 function laneDef(i) {
   // FLAT COPLANAR ORBITS — every lane lies exactly on the XZ plane (y = 0).
   // Concentric circles, no inclination, no node twist, no eccentric wiggle.
-  const r = 390 + i * 160;                 // modest breathing room between lanes
+  const r = 400 + i * 170;                 // a touch more breathing room
   return {
     idx: i,
     r,
@@ -1751,10 +1750,10 @@ function mkBelt(r, w, th, n, dir) {
     return B;
 }
 function sizeFromMcap(mcap) {
-  if (!mcap || mcap <= 0) return 60;                 // no market data yet → clean baseline
+  if (!mcap || mcap <= 0) return 30;                 // no market data yet → clean baseline
   const logM = Math.log10(Math.max(mcap, 1e4));      // floor at $10K
   const t = clamp((logM - 4) / 6, 0, 1);             // $10K → 0 … $10B → 1
-  return Math.round(56 + Math.pow(t, 1.7) * 330);    // $10K ≈ 56 … $10B ≈ 386
+  return Math.round(30 + Math.pow(t, 1.3) * 80);     // pixel radius: $10K→30, $10B→110
 }
 function layout() {
   LANES.length = 0;
@@ -1785,7 +1784,7 @@ function layout() {
     const k = c.ecoKey || '__sol';
     if (counts[k] !== undefined) counts[k]++;
   }
-  let maxR = 390;
+  let maxR = 400;
   for (const k in counts) {
     const n = counts[k];
     if (!n) continue;
@@ -1796,10 +1795,13 @@ function layout() {
       maxLane = ln;
       ln++;
     }
-    const r = (390 + maxLane * 160) * 1.12;
+    const r = (400 + maxLane * 170) * 1.12;
     if (r > maxR) maxR = r;
   }
   outerR = maxR;
+
+  // Note: want.dist is intentionally NOT touched here — user's manual zoom
+  // is preserved. Auto-fit happens only at boot and when new content is added.
 
   layoutEcosystems();
   sizeMul = clamp(Math.pow(outerR / 760, 0.4), 1, 1.8);
@@ -1987,13 +1989,10 @@ function drawPlanet(c, sp, alphaMul = 1) {
   if (prog <= 0) return;
   const sc = easeOutBack(prog);
   const p = c.pj, L = c.lane;
-  // Coin size is fixed to its "default zoom" pixel appearance — no scaling
-  // with the user's manual camera zoom. defDist() is used as the reference
-  // so scene growth (adding coins) still shrinks coins naturally, but
-  // zooming in/out leaves every coin at a constant on-screen size.
-  const refPS = F / defDist();
-  const sz = c.baseSize * sizeMul;
-  const r = Math.max(sz * refPS, 11) * sc;
+  // Coin pixel radius is LITERALLY c.baseSize from sizeFromMcap.
+  // No F, no defDist, no sizeMul, no PS, no warp factor — locked.
+  const sz = c.baseSize;
+  const r = Math.max(sz, 11) * sc;
   const act = selId === c.id, hov = hoverId === c.id;
 
   ctx.globalAlpha = alphaMul;
@@ -2046,9 +2045,11 @@ function drawPlanet(c, sp, alphaMul = 1) {
   if (r > 9) {
     for (let k = 0; k < nm; k++) {
       const am = T * (1.1 + 0.5 * k) + k * 2.1;
-      const rr = sz * (1.9 + 0.8 * k);
-      P(c.pos[0] + rr * Math.cos(am), c.pos[1] + rr * 0.10 * Math.sin(am + k), c.pos[2] + rr * Math.sin(am));
-      if (PZ > 30) moons.push({ x: PX, y: PY, z: PZ, r: Math.max(2.4, sz * 0.2 * PS) * sc });
+      const orbitPx = r * (1.9 + 0.8 * k);            // pixel orbit, scales with coin's fixed r
+      const mx = p.x + orbitPx * Math.cos(am);
+      const my = p.y + orbitPx * 0.18 * Math.sin(am + k);
+      const mz = p.z - orbitPx * Math.sin(am);        // z-offset for behind/front sorting
+      moons.push({ x: mx, y: my, z: mz, r: Math.max(1.8, r * 0.18) * sc });
     }
   }
   for (const m of moons) if (m.z > p.z) drawMoon(m);
@@ -2870,7 +2871,6 @@ function select(id) {
   // Empty click OR chat selection. Do NOT touch the eco banner.
   // The banner persists while an eco is centered.
   selId = id;
-  want.dist = id === 'core' ? 820 : id ? 400 : defDist();
   wantCenY = id ? H * 0.25 : H * 0.5;
   dock.classList.toggle('hide', !!id);
 
@@ -2979,7 +2979,6 @@ createBtn.onclick = async () => {
    14. REFRESH & BOOT
    ═══════════════════════════════════════════════════════════════ */
 async function refreshCommunities() {
-  const oldDist = want.dist;
   const oldYaw = cam.yaw;
   const oldPitch = cam.pitch;
   const oldCenY = wantCenY;
@@ -2990,7 +2989,8 @@ async function refreshCommunities() {
     initBodies();
     buildDock();
     refreshBanner();
-    want.dist = oldDist;
+    // Auto-fit only outward — never shrink user's manual zoom in.
+    want.dist = Math.max(want.dist, defDist());
     wantCenY = oldCenY;
     cam.yaw = oldYaw;
     cam.pitch = oldPitch;
@@ -3024,6 +3024,10 @@ async function initApp() {
 
   await refreshAllStats();
   statsRefreshTimer = setInterval(refreshAllStats, 60000);
+
+  // Re-fit to the real room count — initial 4 loading rooms under-count the
+  // actual scene size, so pull the camera back so everything is visible.
+  want.dist = defDist();
 
   initBodies();
   buildDock();
