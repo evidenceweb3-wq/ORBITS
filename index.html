@@ -1044,10 +1044,18 @@ function drawBody(body, t, list) {
   const distFromCenter = Math.hypot(body.wx, body.wy, body.wz);
   const centerness = clamp(1 - distFromCenter / (ECO_RING.radius * 0.85), 0, 1);
 
-  // maxCoinBase is already computed in frame() before draw
-  const ringR = Math.max(110 * ps, 30);
-  const centerR = Math.max(maxCoinBase * sizeMul * 1.35 * ps, 100);
-  const R = ringR + (centerR - ringR) * centerness;
+  // Sol body: fixed on-screen pixel size — never grows/shrinks with zoom.
+  // Coins keep the normal ps-scaled sizing.
+  let R;
+  if (body.isSol) {
+    const ringPx   = 55;    // ~min radius when Sol is ringed (future eco view)
+    const centerPx = 100;   // radius when Sol is the centerpiece
+    R = ringPx + (centerPx - ringPx) * centerness;
+  } else {
+    const ringR   = Math.max(110 * ps, 30);
+    const centerR = Math.max(maxCoinBase * sizeMul * 1.35 * ps, 100);
+    R = ringR + (centerR - ringR) * centerness;
+  }
 
   if (distFromCenter > 30) {
     const [tx, ty, tz] = getTargetPos(body);
@@ -1685,7 +1693,7 @@ async function refreshAllStats() {
 function laneDef(i) {
   // FLAT COPLANAR ORBITS — every lane lies exactly on the XZ plane (y = 0).
   // Concentric circles, no inclination, no node twist, no eccentric wiggle.
-  const r = 380 + i * 155;                 // wider breathing room between lanes
+  const r = 390 + i * 160;                 // modest breathing room between lanes
   return {
     idx: i,
     r,
@@ -1777,7 +1785,7 @@ function layout() {
     const k = c.ecoKey || '__sol';
     if (counts[k] !== undefined) counts[k]++;
   }
-  let maxR = 380;
+  let maxR = 390;
   for (const k in counts) {
     const n = counts[k];
     if (!n) continue;
@@ -1788,7 +1796,7 @@ function layout() {
       maxLane = ln;
       ln++;
     }
-    const r = (380 + maxLane * 155) * 1.12;
+    const r = (390 + maxLane * 160) * 1.12;
     if (r > maxR) maxR = r;
   }
   outerR = maxR;
@@ -1979,8 +1987,13 @@ function drawPlanet(c, sp, alphaMul = 1) {
   if (prog <= 0) return;
   const sc = easeOutBack(prog);
   const p = c.pj, L = c.lane;
+  // Coin size is fixed to its "default zoom" pixel appearance — no scaling
+  // with the user's manual camera zoom. defDist() is used as the reference
+  // so scene growth (adding coins) still shrinks coins naturally, but
+  // zooming in/out leaves every coin at a constant on-screen size.
+  const refPS = F / defDist();
   const sz = c.baseSize * sizeMul;
-  const r = Math.max(sz * p.s, 11) * sc;
+  const r = Math.max(sz * refPS, 11) * sc;
   const act = selId === c.id, hov = hoverId === c.id;
 
   ctx.globalAlpha = alphaMul;
@@ -2257,7 +2270,9 @@ function frame(now) {
 
   P(0, 0, 0);
   const sp = { x: PX, y: PY, z: PZ, s: PS };
-  SUN_SCREEN.x = PX; SUN_SCREEN.y = PY; SUN_SCREEN.z = PZ; SUN_SCREEN.r = Math.max(maxCoinBase * sizeMul * 1.35 * PS, 100);
+  SUN_SCREEN.x = PX; SUN_SCREEN.y = PY; SUN_SCREEN.z = PZ;
+  // Fade radius matches the drawn Sol planet (fixed 100 px) so the two line up
+  SUN_SCREEN.r = 100;
 
   const list = [];
 
