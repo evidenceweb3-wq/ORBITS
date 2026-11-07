@@ -141,6 +141,46 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
 .eco-banner .eco-close{background:rgba(255,255,255,.08);border:0;color:var(--eco-color, #ffb27a);width:26px;height:26px;border-radius:50%;cursor:pointer;font:16px/1 system-ui;display:grid;place-items:center;transition:all .2s}
 .eco-banner .eco-close:hover{background:rgba(239,68,68,.25);color:#ef4444}
 @media(max-width:560px){.eco-banner{top:calc(130px + env(safe-area-inset-top));font-size:12px;padding:7px 6px 7px 14px}}
+
+/* ═══ PRICE HUD (top-right) ═══ */
+.price-hud{
+  position:fixed;top:calc(64px + env(safe-area-inset-top));right:14px;
+  display:none;flex-direction:column;gap:6px;
+  background:linear-gradient(180deg,rgba(12,15,32,.94),rgba(6,8,20,.96));
+  border:1px solid rgba(255,255,255,.12);border-radius:14px;
+  padding:11px 14px;backdrop-filter:blur(16px) saturate(140%);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+  font:800 12px var(--font-mono);color:var(--ui);z-index:5;
+  box-shadow:0 8px 28px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.03);
+  min-width:158px;max-width:210px;
+  transition:opacity .25s,transform .25s;transform:translateY(-4px);opacity:0;
+}
+.price-hud.show{display:flex;opacity:1;transform:translateY(0)}
+.price-hud .ph-name{font:800 11px system-ui;letter-spacing:.05em;color:var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:2px}
+.price-hud .ph-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.price-hud .ph-label{font-size:8.5px;letter-spacing:.12em;color:var(--mut);font-weight:800;text-transform:uppercase}
+.price-hud .ph-price{font-size:15px;font-weight:900;color:var(--c);font-variant-numeric:tabular-nums}
+.price-hud .ph-change{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.price-hud .ph-change.pos{color:var(--green);text-shadow:0 0 8px rgba(34,197,94,.35)}
+.price-hud .ph-change.neg{color:var(--red);text-shadow:0 0 8px rgba(239,68,68,.35)}
+.price-hud .ph-mcap{font-size:11px;color:var(--ui);font-variant-numeric:tabular-nums}
+@media(max-width:560px){.price-hud{top:calc(132px + env(safe-area-inset-top));right:10px;padding:9px 12px;min-width:140px}}
+
+/* ═══ REACTION CHIPS ═══ */
+.rx-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.rx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:var(--ui);border-radius:10px;padding:2px 8px;font:600 11.5px system-ui;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:4px;line-height:1.4}
+.rx-chip:hover{background:rgba(255,255,255,.12);border-color:var(--c);transform:translateY(-1px)}
+.rx-chip.mine{background:color-mix(in srgb,var(--c) 22%,transparent);border-color:var(--c);color:#fff}
+.rx-add{background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.16);color:var(--mut);border-radius:10px;padding:2px 8px;font:600 11px system-ui;cursor:pointer;transition:all .15s;line-height:1.4}
+.rx-add:hover{border-color:var(--c);color:var(--c);background:rgba(255,179,71,.06)}
+.rx-picker{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:rgba(14,17,38,.99);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:5px;gap:2px;box-shadow:0 12px 32px rgba(0,0,0,.7);z-index:30;white-space:nowrap}
+.rx-picker.show{display:flex}
+.rx-pick-btn{background:none;border:0;font-size:20px;cursor:pointer;padding:4px 6px;border-radius:8px;transition:all .15s;line-height:1}
+.rx-pick-btn:hover{background:rgba(255,255,255,.14);transform:scale(1.2)}
+
+/* ═══ WARP CHIP ═══ */
+.chip.warp{padding-left:12px;color:#c4b5fd;border-color:rgba(167,139,250,.45);background:linear-gradient(135deg,rgba(167,139,250,.12),rgba(139,92,246,.04))}
+.chip.warp:hover{background:rgba(167,139,250,.22);box-shadow:0 0 14px rgba(167,139,250,.5);border-color:#a78bfa}
 </style>
 </head>
 <body class="booting">
@@ -173,6 +213,8 @@ body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-event
   <button class="eco-add" id="ecoAddBtn" title="Add coin">+</button>
   <button class="eco-close" id="ecoClose" title="Back to Solana">×</button>
 </div>
+
+<div class="price-hud" id="priceHUD"></div>
 
 <div class="dock" id="dock"></div>
 <div class="sheet" id="sheet"></div>
@@ -257,12 +299,6 @@ function hashColor(str) { let h = 0; for (let i = 0; i < str.length; i++) h = (h
 function fmtPrice(p) { if (!p || p <= 0) return '$0.00'; if (p < 0.00001) return '$' + p.toExponential(2); if (p < 0.001) return '$' + p.toFixed(6); if (p < 1) return '$' + p.toFixed(4); return '$' + p.toLocaleString(undefined, { maximumFractionDigits: 2 }); }
 function fmtBig(n) { if (!n || n <= 0) return '$0'; if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B'; if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M'; if (n >= 1e3) return '$' + (n / 1e3).toFixed(2) + 'K'; return '$' + n.toFixed(0); }
 function relTime(ts) { const m = Math.max(1, Math.round((Date.now() - new Date(ts).getTime()) / 60000)); return m < 60 ? m + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; }
-function withTimeout(p, ms, label) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error((label || 'Request') + ' timed out')), ms))]); }
-function coinFallbackSvg(symbol, color) {
-  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${color || '#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="42" fill="#fff">${esc((symbol || '?')[0])}</text></svg>`
-  );
-}
 function hexA(hex, a) {
   const n = parseInt(hex.replace('#', ''), 16);
   const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
@@ -316,10 +352,46 @@ function showToast(msg, isError = false) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   2.5 PRICE HUD (top-right floating panel)
+   ═══════════════════════════════════════════════════════════════ */
+const priceHUD = $('priceHUD');
+let hudSnapshot = '';
+
+function updatePriceHUD(coin) {
+  if (!coin || !coin.stats) {
+    if (!coin) priceHUD.classList.remove('show');
+    return;
+  }
+  const s = coin.stats;
+  const snap = coin.id + '|' + s.price + '|' + s.change + '|' + s.mcap;
+  if (hudSnapshot === snap) return;   // nothing changed → skip rebuild
+  hudSnapshot = snap;
+  const isUp = s.change >= 0;
+  priceHUD.innerHTML = `
+    <div class="ph-name">${esc((coin.name || '?').slice(0, 22))}</div>
+    <div class="ph-row">
+      <span class="ph-label">Price</span>
+      <span class="ph-price">${fmtPrice(s.price)}</span>
+    </div>
+    <div class="ph-row">
+      <span class="ph-label">24H</span>
+      <span class="ph-change ${isUp ? 'pos' : 'neg'}">${isUp ? '+' : ''}${s.change.toFixed(2)}%</span>
+    </div>
+    <div class="ph-row">
+      <span class="ph-label">MCap</span>
+      <span class="ph-mcap">${fmtBig(s.mcap)}</span>
+    </div>
+  `;
+  priceHUD.classList.add('show');
+}
+function hidePriceHUD() {
+  hudSnapshot = '';
+  priceHUD.classList.remove('show');
+}
+/* ═══════════════════════════════════════════════════════════════
    3. LIVE SOL PRICE
    ═══════════════════════════════════════════════════════════════ */
 let solData = null;
-let solPrev = 0;
 
 async function fetchSolPrice() {
   try {
@@ -336,7 +408,6 @@ async function fetchSolPrice() {
 async function updateSolPrice() {
   const d = await fetchSolPrice();
   if (!d) return;
-  solPrev = d.price;
   solData = d;
 }
 updateSolPrice();
@@ -562,13 +633,6 @@ const CHAIN_CONFIG = {
   bnb:  { chainId: 'bsc',       kind: 'evm', label: 'BNB Chain', color: '#F3BA2F' },
   avax: { chainId: 'avalanche', kind: 'evm', label: 'Avalanche', color: '#E84142' },
   rh:   { chainId: 'robinhood', kind: 'evm', label: 'Robinhood', color: '#CCFF00' }
-};
-
-const EVM_RPCS = {
-  eth:  'https://ethereum.publicnode.com',
-  bnb:  'https://bsc-dataseed.binance.org',
-  avax: 'https://api.avax.network/ext/bc/C/rpc',
-  rh:   null
 };
 
 function chainIdOf(ecoKey) {
@@ -949,7 +1013,7 @@ function swapCenterTo(targetKey) {
   sheet.classList.remove('open');
   currentRoomId = null;
   if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
-  if (currentAccessChannel) { sb.removeChannel(currentAccessChannel); currentAccessChannel = null; }
+  if (currentReactionsChannel) { sb.removeChannel(currentReactionsChannel); currentReactionsChannel = null; }
   if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
 
     const tempSlot = current.slot;
@@ -988,8 +1052,8 @@ function drawBody(body, t, list) {
   const distFromCenter = Math.hypot(body.wx, body.wy, body.wz);
   const centerness = clamp(1 - distFromCenter / (ECO_RING.radius * 0.85), 0, 1);
 
-  const ringR = Math.max(70 * ps, 16);
-  const centerR = Math.max(200 * ps, 32);
+  const ringR = Math.max(80 * ps, 18);
+  const centerR = Math.max(235 * ps, 38);
   const R = ringR + (centerR - ringR) * centerness;
 
   if (distFromCenter > 30) {
@@ -1376,6 +1440,7 @@ addCoinBtn.onclick = async () => {
 
   layout();
   buildDock();
+  refreshAllStats().catch(() => {});
 };
 
 addCoinInput.onkeydown = e => { if (e.key === 'Enter') addCoinBtn.click(); };
@@ -1434,6 +1499,59 @@ for (let i = 0; i < 220; i++) {
   });
 }
 
+/* ─── SHOOTING STARS ─── */
+const shootingStars = [];
+function spawnShootingStar(big = false) {
+  const fromLeft = Math.random() > 0.5;
+  const fromX = fromLeft ? -80 : W + 80;
+  const fromY = Math.random() * H * 0.55;
+  const angle = fromLeft
+    ? Math.PI * (0.15 + Math.random() * 0.2)
+    : Math.PI * (0.65 + Math.random() * 0.2);
+  const speed = big ? 1000 : 500 + Math.random() * 400;
+  shootingStars.push({
+    x: fromX, y: fromY,
+    vx: Math.cos(angle) * speed * (fromLeft ? 1 : -1),
+    vy: Math.sin(angle) * speed,
+    life: big ? 2.2 : 1.1 + Math.random() * 0.6,
+    age: 0,
+    color: big ? '#ffd27a' : (Math.random() > 0.4 ? '#ffffff' : '#b8d4ff'),
+    size: big ? 3.5 : 2
+  });
+}
+setInterval(() => { if (Math.random() < 0.55) spawnShootingStar(false); }, 7000);
+setInterval(() => {
+  if (Math.random() < 0.35) {
+    for (let i = 0; i < 4; i++) setTimeout(() => spawnShootingStar(true), i * 180);
+  }
+}, 24000);
+
+function drawShootingStars(dt) {
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = shootingStars.length - 1; i >= 0; i--) {
+    const s = shootingStars[i];
+    s.age += dt;
+    if (s.age > s.life || s.x < -200 || s.x > W + 200 || s.y > H + 200 || s.y < -200) {
+      shootingStars.splice(i, 1); continue;
+    }
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    const a = Math.sin((1 - s.age / s.life) * Math.PI);
+    const tx = s.x - s.vx * 0.08, ty = s.y - s.vy * 0.08;
+    const grad = ctx.createLinearGradient(s.x, s.y, tx, ty);
+    grad.addColorStop(0, s.color);
+    grad.addColorStop(1, s.color + '00');
+    ctx.strokeStyle = grad;
+    ctx.globalAlpha = a;
+    ctx.lineWidth = s.size;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.fillStyle = s.color;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.size * 0.9, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 let neb = null;
 function buildNebula() {
   const w = Math.ceil(W * 1.3 * 0.5), h = Math.ceil(H * 1.3 * 0.5);
@@ -1460,7 +1578,7 @@ const HY = {};
 let ALL = [], byId = {};
 const LANES = [];
 let BELTS = [];
-let outerR = 250, sizeMul = 1;
+let outerR = 320, sizeMul = 1;
 
 function hyd(d) {
   if (HY[d.id]) return HY[d.id];
@@ -1510,8 +1628,25 @@ async function syncAll() {
   ALL.forEach(c => byId[c.id] = c);
 }
 
+let statsRefreshTimer = null;
+async function refreshAllStats() {
+  await Promise.all(ALL.map(async c => {
+    if (!c.ca) return;
+    try {
+      const s = await getTokenStats(c.ca, false, c.ecoKey);
+      if (s) {
+        c.stats    = s;
+        c.mcap     = s.mcap || 0;
+        c.change24 = s.change || 0;
+        c.priceVal = s.price  || 0;
+      }
+    } catch (e) { /* silent */ }
+  }));
+  layout();
+}
+
 function laneDef(i) {
-  const r = 250 + i * 92;
+  const r = 320 + i * 108;
   const e = 0.03 + (Math.sin(i * 12.9898) * 0.5 + 0.5) * 0.09;
   const inc = (i % 2 ? -1 : 1) * (0.06 + (Math.sin(i * 78.233) * 0.5 + 0.5) * 0.24);
   const node = i * 2.399963;
@@ -1587,7 +1722,14 @@ function layout() {
       c.lane = L;
       c.toff = k / L.members.length * TAU + L.idx * 1.7;
       if (c.off === undefined) c.off = c.toff;
-      c.baseSize = clamp(30 + Math.log10((c.members || 0) + 10) * 8, 36, 72);
+      // Size driven by market cap (log scale) — smallest = 36, cap at 90
+      const mcap = c.mcap || 0;
+      if (mcap > 0) {
+        const logM = Math.log10(Math.max(mcap, 1000));
+        c.baseSize = clamp(36 + (logM - 3) * 10, 36, 90);
+      } else {
+        c.baseSize = 44;
+      }
     });
   }
 
@@ -1597,7 +1739,7 @@ function layout() {
     const k = c.ecoKey || '__sol';
     if (counts[k] !== undefined) counts[k]++;
   }
-  let maxR = 250;
+  let maxR = 320;
   for (const k in counts) {
     const n = counts[k];
     if (!n) continue;
@@ -1608,7 +1750,7 @@ function layout() {
       maxLane = ln;
       ln++;
     }
-    const r = (250 + maxLane * 92) * 1.12;
+    const r = (320 + maxLane * 108) * 1.12;
     if (r > maxR) maxR = r;
   }
   outerR = maxR;
@@ -1803,6 +1945,12 @@ function drawPlanet(c, sp) {
   const r = Math.max(sz * p.s, 11) * sc;
   const act = selId === c.id, hov = hoverId === c.id;
 
+  const chg = (typeof c.change24 === 'number') ? c.change24 : 0;
+  const isUp = chg >= 0;
+  const trendColor = isUp ? '#22c55e' : '#ef4444';
+  const trendRGB = isUp ? [34,197,94] : [239,68,68];
+  const trendA = (a) => `rgba(${trendRGB[0]},${trendRGB[1]},${trendRGB[2]},${a})`;
+
   let nt = 0;
   TX[0] = p.x; TY[0] = p.y;
   for (let k = 1; k <= 35; k++) {
@@ -1828,6 +1976,18 @@ function drawPlanet(c, sp) {
     ctx.globalAlpha = 1;
   }
 
+  const atmosR = r * (1.95 + Math.sin(RT * 1.4 + c.born) * 0.14);
+  ctx.globalCompositeOperation = 'lighter';
+  let ag = ctx.createRadialGradient(p.x, p.y, r * 0.85, p.x, p.y, atmosR);
+  ag.addColorStop(0, trendA(0.42));
+  ag.addColorStop(0.42, trendA(0.20));
+  ag.addColorStop(0.75, trendA(0.08));
+  ag.addColorStop(1, trendA(0));
+  ctx.fillStyle = ag;
+  ctx.beginPath(); ctx.arc(p.x, p.y, atmosR, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+
   const nm = clamp(Math.floor((c.members || 0) / 1000), 0, 3);
   const moons = [];
   if (r > 9) {
@@ -1840,13 +2000,25 @@ function drawPlanet(c, sp) {
   }
   for (const m of moons) if (m.z > p.z) drawMoon(m);
 
+  if (c.typingPulse && RT < c.typingPulse) {
+    const kk = clamp((c.typingPulse - RT) / 1.4, 0, 1);
+    ctx.save();
+    ctx.strokeStyle = c.color;
+    ctx.globalAlpha = kk;
+    ctx.lineWidth = 2.5 + (1 - kk) * 3;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r * (1.25 + (1 - kk) * 1.4), 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   let lx = sp.x - p.x, ly = sp.y - p.y;
   const Ln = Math.hypot(lx, ly) || 1;
   lx /= Ln; ly /= Ln;
 
   ctx.globalCompositeOperation = 'lighter';
   let g = ctx.createRadialGradient(p.x, p.y, r * 0.8, p.x, p.y, r * 1.35);
-  g.addColorStop(0, c.color + '30'); g.addColorStop(1, c.color + '00');
+  g.addColorStop(0, c.color + '40'); g.addColorStop(1, c.color + '00');
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.35, 0, TAU); ctx.fill();
 
@@ -1881,8 +2053,13 @@ function drawPlanet(c, sp) {
   ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
   ctx.restore();
 
-  ctx.lineWidth = 1.5; ctx.strokeStyle = c.color; ctx.globalAlpha = 0.8;
+  ctx.lineWidth = 1.8 + (act ? 0.9 : 0);
+  ctx.strokeStyle = trendColor;
+  ctx.globalAlpha = act ? 1 : 0.85;
+  ctx.shadowColor = trendColor;
+  ctx.shadowBlur = act ? 12 : 6;
   ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.stroke();
+  ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
 
   for (const m of moons) if (m.z <= p.z) drawMoon(m);
@@ -1899,18 +2076,29 @@ function drawPlanet(c, sp) {
   if (act || hov) {
     ctx.save();
     ctx.setLineDash([6, 6]); ctx.lineDashOffset = -RT * 20;
-    ctx.strokeStyle = act ? '#fff' : c.color; ctx.lineWidth = 2;
+    ctx.strokeStyle = act ? '#fff' : trendColor; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.45, 0, TAU); ctx.stroke();
     ctx.restore();
   }
 
   if (ALL.length <= 9 || act || hov || r > 17) {
+    const nameY = p.y + r + (act ? 22 : 18);
     ctx.font = `700 ${clamp(r * 0.42, 11, 16)}px system-ui`;
     ctx.textAlign = 'center';
     ctx.fillStyle = act || hov ? '#fff' : 'rgba(225,232,255,.9)';
     ctx.shadowColor = '#000'; ctx.shadowBlur = 8;
-    ctx.fillText(c.name, p.x, p.y + r + (act ? 22 : 18));
+    ctx.fillText(c.name, p.x, nameY);
     ctx.shadowBlur = 0;
+
+    if (typeof c.change24 === 'number') {
+      const chgText = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+      ctx.font = `800 ${clamp(r * 0.30, 9, 12)}px ui-monospace,'SF Mono',Menlo,monospace`;
+      ctx.fillStyle = trendColor;
+      ctx.shadowColor = trendColor;
+      ctx.shadowBlur = 8;
+      ctx.fillText(chgText, p.x, nameY + 14);
+      ctx.shadowBlur = 0;
+    }
   }
 
   hits.push({ id: c.id, x: p.x, y: p.y, r: r * 1.15, z: p.z });
@@ -2003,10 +2191,22 @@ function frame(now) {
     ctx.globalAlpha = 1;
   }
 
+  {
+    const cdr = Math.max(W, H) * 0.58;
+    const centerDark = ctx.createRadialGradient(W / 2, cenY, 0, W / 2, cenY, cdr);
+    centerDark.addColorStop(0,   'rgba(2,3,9,0.78)');
+    centerDark.addColorStop(0.35,'rgba(2,3,9,0.42)');
+    centerDark.addColorStop(0.7, 'rgba(2,3,9,0.14)');
+    centerDark.addColorStop(1,   'rgba(2,3,9,0)');
+    ctx.fillStyle = centerDark;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   const savedF = F;
   F = F * (1 + warp * 0.09);
 
   drawStarsBg(now / 1000);
+  drawShootingStars(dt);
 
   P(0, 0, 0);
   const sp = { x: PX, y: PY, z: PZ, s: PS };
@@ -2144,10 +2344,19 @@ cv.addEventListener('pointerdown', e => {
 });
 cv.addEventListener('pointermove', e => {
   const p = ptrs.get(e.pointerId);
-  if (!p) {
+   if (!p) {
     const h = hitAt(e.clientX, e.clientY);
     hoverId = h ? h.id : null;
     cv.classList.toggle('hit', !!h);
+    if (h && byId[h.id] && byId[h.id].stats) {
+      updatePriceHUD(byId[h.id]);
+    } else if (h && h.bodyKey) {
+      hidePriceHUD();
+    } else if (selId && selId !== 'core' && byId[selId] && byId[selId].stats) {
+      updatePriceHUD(byId[selId]);
+    } else if (!selId) {
+      hidePriceHUD();
+    }
     return;
   }
   const dx = e.clientX - p.x, dy = e.clientY - p.y;
@@ -2222,10 +2431,24 @@ function h(tag, props, ...kids) {
 const sheet = $('sheet');
 const dock = $('dock');
 
+function warpToRandomPlanet() {
+  const ecoKey = currentEcoKey();
+  const visible = ALL.filter(c => (c.ecoKey || null) === ecoKey && c.lane);
+  if (!visible.length) { showToast('No planets to warp to yet', true); return; }
+  const target = visible[Math.floor(Math.random() * visible.length)];
+  warp = 0.35;
+  warpColor = target.color;
+  setTimeout(() => {
+    select(target.id);
+    showToast(`Warping to ${target.name} 🚀`);
+  }, 180);
+}
+
 function buildDock() {
   dock.innerHTML = '';
   dock.append(
     h('button', { class: 'chip core', onclick: () => select('core') }, '✦ General'),
+    h('button', { class: 'chip warp', onclick: warpToRandomPlanet }, '🚀 Warp'),
     h('button', { class: 'chip add', onclick: () => $('modal').classList.add('open') }, '＋ New World')
   );
   const ecoKey = currentEcoKey();
@@ -2247,21 +2470,76 @@ function buildDock() {
    ═══════════════════════════════════════════════════════════════ */
 let currentRoomId = null;
 let currentChannel = null;
-let currentAccessChannel = null;
+let currentReactionsChannel = null;
 let currentStatsTimer = null;
 let chatReqId = 0;
 
-function makeMsgEl(m, isMine) {
-  return h('div', { class: 'msg' + (isMine ? ' mine' : '') },
+const REACTIONS = ['🔥','🚀','💎','😂','🫡','👀'];
+
+function makeMsgEl(m, isMine, existingReactions = []) {
+  const rxWrap = h('div', { class: 'rx-wrap' });
+
+  const renderReactions = (list) => {
+    rxWrap.innerHTML = '';
+    list.forEach(r => {
+      const chip = h('button', {
+        class: 'rx-chip' + (r.mine ? ' mine' : ''),
+        onclick: async (e) => {
+          e.stopPropagation();
+          if (!walletAddress) { showToast('Connect wallet to react', true); return; }
+          if (r.mine) {
+            await sb.from('orbit_reactions').delete()
+              .eq('message_id', m.id).eq('wallet', walletAddress).eq('emoji', r.emoji);
+          } else {
+            await sb.from('orbit_reactions').insert({ message_id: m.id, wallet: walletAddress, emoji: r.emoji });
+          }
+        }
+      }, `${r.emoji} ${r.count}`);
+      rxWrap.append(chip);
+    });
+  };
+
+  const picker = h('div', { class: 'rx-picker' });
+  REACTIONS.forEach(em => {
+    picker.append(h('button', {
+      class: 'rx-pick-btn',
+      onclick: async (e) => {
+        e.stopPropagation();
+        if (!walletAddress) { showToast('Connect wallet to react', true); return; }
+        const { error } = await sb.from('orbit_reactions').insert({ message_id: m.id, wallet: walletAddress, emoji: em });
+        if (error && error.code !== '23505') showToast('React failed', true);
+        picker.classList.remove('show');
+      }
+    }, em));
+  });
+
+  const addBtn = h('button', {
+    class: 'rx-add',
+    onclick: (e) => { e.stopPropagation(); picker.classList.toggle('show'); }
+  }, '😊+');
+
+  const el = h('div', { class: 'msg' + (isMine ? ' mine' : ''), 'data-msg-id': m.id },
     h('div', { class: 'msg-av', style: `background:${hashColor(m.username || '?')}` }, initials(m.username || '?')),
     h('div', { class: 'msg-body' },
       h('div', { class: 'msg-head' },
-               h('b', null, m.sol_name || m.username || shortAddr(m.wallet)),
+        h('b', null, m.sol_name || m.username || shortAddr(m.wallet)),
         h('span', null, relTime(m.created_at))
       ),
-      h('p', null, m.content)
+      h('p', null, m.content),
+      rxWrap,
+      h('div', { style: 'position:relative;display:inline-block;margin-top:5px' }, addBtn, picker)
     )
   );
+
+  const map = {};
+  existingReactions.forEach(r => {
+    if (!map[r.emoji]) map[r.emoji] = { emoji: r.emoji, count: 0, mine: false };
+    map[r.emoji].count++;
+    if (r.wallet === walletAddress) map[r.emoji].mine = true;
+  });
+  renderReactions(Object.values(map));
+  el._rxRender = renderReactions;
+  return el;
 }
 
 async function openChat(roomId, roomName, roomColor, ca) {
@@ -2270,7 +2548,7 @@ async function openChat(roomId, roomName, roomColor, ca) {
   sheet.style.setProperty('--c', roomColor);
 
   if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
-  if (currentAccessChannel) { sb.removeChannel(currentAccessChannel); currentAccessChannel = null; }
+  if (currentReactionsChannel) { sb.removeChannel(currentReactionsChannel); currentReactionsChannel = null; }
   if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
 
   const isGeneral = roomId === GENERAL_ROOM;
@@ -2359,20 +2637,55 @@ async function openChat(roomId, roomName, roomColor, ca) {
       if (!m || m.community_id !== currentRoomId) return;
       const loader = feed.querySelector('.loading');
       if (loader) loader.remove();
-      feed.append(makeMsgEl(m, m.wallet && walletAddress && m.wallet === walletAddress));
+      feed.append(makeMsgEl(m, m.wallet && walletAddress && m.wallet === walletAddress, []));
       const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 200;
       if (nearBottom) feed.scrollTop = feed.scrollHeight;
       else jumpBtn.classList.add('show');
+      const planet = byId[m.community_id];
+      if (planet) planet.activityScore = (planet.activityScore || 0) + 1;
+    })
+    .on('broadcast', { event: 'TYPING' }, (payload) => {
+      const p = payload.payload;
+      if (!p || p.wallet === walletAddress) return;
+      const planet = byId[p.room_id];
+      if (planet) planet.typingPulse = RT + 1.4;
     })
     .subscribe();
 
+  currentReactionsChannel = sb.channel(`room:${roomId}:reactions`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orbit_reactions' }, async (p) => {
+      // Early-out: skip events for messages not in this room
+      const r = p.new || p.old;
+      if (!r || !r.message_id) return;
+      const el = feed.querySelector(`[data-msg-id="${r.message_id}"]`);
+      if (!el || !el._rxRender) return;
+      const { data: all } = await sb.from('orbit_reactions').select('*').in('message_id', [r.message_id]);
+      const map = {};
+      (all || []).forEach(x => {
+        if (!map[x.emoji]) map[x.emoji] = { emoji: x.emoji, count: 0, mine: false };
+        map[x.emoji].count++;
+        if (x.wallet === walletAddress) map[x.emoji].mine = true;
+      });
+      el._rxRender(Object.values(map));
+    })
+    .subscribe();
   const input = h('input', {
     placeholder: `Message #${roomName}…`,
     maxlength: '200', autocomplete: 'off'
   });
   const charCount = h('span', { class: 'char-count' }, '0/200');
+  let typingThrottle = 0;
   input.addEventListener('input', () => {
     charCount.textContent = input.value.length + '/200';
+    const now = performance.now();
+    if (currentChannel && input.value.length > 0 && !input.disabled && now - typingThrottle > 900) {
+      typingThrottle = now;
+      currentChannel.send({
+        type: 'broadcast',
+        event: 'TYPING',
+        payload: { wallet: walletAddress || 'guest', room_id: roomId }
+      });
+    }
   });
 
   const sendBtn = h('button', null, 'Send');
@@ -2427,7 +2740,17 @@ async function openChat(roomId, roomName, roomColor, ca) {
 
   feed.innerHTML = '';
   if (data && data.length) {
-    data.forEach(m => feed.append(makeMsgEl(m, m.wallet && walletAddress && m.wallet === walletAddress)));
+    const ids = data.map(m => m.id);
+    let rxAll = [];
+    if (ids.length) {
+      const { data: rData } = await sb.from('orbit_reactions').select('*').in('message_id', ids);
+      rxAll = rData || [];
+    }
+    const rxByMsg = {};
+    rxAll.forEach(r => { (rxByMsg[r.message_id] ||= []).push(r); });
+    data.forEach(m => {
+      feed.append(makeMsgEl(m, m.wallet && walletAddress && m.wallet === walletAddress, rxByMsg[m.id] || []));
+    });
   } else {
     feed.append(h('div', { class: 'loading' }, 'Quiet orbit. Be the first to post.'));
   }
@@ -2443,30 +2766,12 @@ async function openChat(roomId, roomName, roomColor, ca) {
       input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
     } else {
       const { data: res } = await sb.functions.invoke('check_access', { body: { wallet: walletAddress, room_id: roomId, ca } });
-      if (res && res.status) {
+             if (res && res.status) {
         const granted = res.status === 'granted';
         input.disabled = !granted;
         input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
       }
     }
-
-    await sb.realtime.setAuth();
-    currentAccessChannel = sb.channel(`access:${roomId}`, { config: { private: true } })
-      .on('broadcast', { event: 'INSERT' }, (p) => {
-        const d = p.payload?.record ?? p.payload;
-        if (!d || d.wallet !== walletAddress) return;
-        const granted = d.status === 'granted';
-        input.disabled = !granted;
-        input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
-      })
-      .on('broadcast', { event: 'UPDATE' }, (p) => {
-        const d = p.payload?.record ?? p.payload;
-        if (!d || d.wallet !== walletAddress) return;
-        const granted = d.status === 'granted';
-        input.disabled = !granted;
-        input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
-      })
-      .subscribe();
   }
 }
 
@@ -2502,7 +2807,7 @@ function select(id) {
     currentRoomId = null;
     sheet.classList.remove('open');
     if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
-    if (currentAccessChannel) { sb.removeChannel(currentAccessChannel); currentAccessChannel = null; }
+    if (currentReactionsChannel) { sb.removeChannel(currentReactionsChannel); currentReactionsChannel = null; }
     if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
 
     const prev = prevSel ? byId[prevSel] : null;
@@ -2511,8 +2816,17 @@ function select(id) {
                             : (cB && !cB.isSol ? getEco(cB.key).color : '#14F195');
     waves.push({ t0: RT, color: pulseColor });
 
+    hidePriceHUD();
     refreshBanner();
     return;
+  }
+
+  if (id !== 'core') {
+    const room = byId[id];
+    if (room && room.stats) updatePriceHUD(room);
+    else hidePriceHUD();
+  } else {
+    hidePriceHUD();
   }
 
   sheet.classList.add('open');
@@ -2565,8 +2879,6 @@ const createBtn = $('createBtn');
 $('modalCloseBtn').onclick = () => { modal.classList.remove('open'); caInput.value = ''; };
 modal.onclick = e => { if (e.target === modal) { modal.classList.remove('open'); caInput.value = ''; } };
 
-const EVM_CHAIN_TO_ECO = { ethereum: 'eth', bsc: 'bnb', robinhood: 'rh', avalanche: 'avax' };
-
 createBtn.onclick = async () => {
   const ca = caInput.value.trim();
   if (!ca || ca.length < 30) { showToast('Invalid CA', true); return; }
@@ -2600,8 +2912,9 @@ async function refreshCommunities() {
   const oldYaw = cam.yaw;
   const oldPitch = cam.pitch;
   const oldCenY = wantCenY;
-  try {
-            await syncAll();
+   try {
+    await syncAll();
+    refreshAllStats().catch(() => {});
     layout();
     initBodies();
     buildDock();
@@ -2632,15 +2945,15 @@ async function initApp() {
   cenY = wantCenY;
   want.dist = defDist();
   cam.dist = defDist() * 1.5;
-  try {
+   try {
     await syncAll();
   } catch (e) {
     console.warn('Could not fetch communities from Supabase:', e);
   }
 
-    // (eco coins now live in orbit_communities; nothing to fetch separately)
+  await refreshAllStats();
+  statsRefreshTimer = setInterval(refreshAllStats, 60000);
 
-  layout();
   initBodies();
   buildDock();
 
