@@ -311,25 +311,26 @@ function hexRGB(hex) {
 
 const _ringPalette = new Array(96).fill('#ffffff');
 function refreshRingPalette() {
-  const seg = TAU / 4;
-  const colors = [];
-  for (let s = 0; s < 4; s++) {
-    const b = BODIES.find(x => x.slot === s);
-    if (!b) { colors.push([180, 180, 200]); continue; }
-    const c = b.isSol ? '#14F195' : (getEco(b.key)?.color || '#ffffff');
-    colors.push(hexRGB(c));
-  }
+  // Cosmic debris gradient — vivid blues, ambers, corals, mints, violets
+  const stops = [
+    [100, 160, 255], // electric blue
+    [255, 190, 90],  // amber
+    [255, 110, 90],  // coral
+    [90, 240, 170],  // mint
+    [180, 120, 255], // violet
+    [90, 210, 240],  // cyan
+  ];
   const N = _ringPalette.length;
   for (let i = 0; i < N; i++) {
-    const a = (i / N) * TAU;
-    const si = Math.floor(a / seg) % 4;
-    const ni = (si + 1) % 4;
-    const t = (a - si * seg) / seg;
-    const c1 = colors[si], c2 = colors[ni];
-    const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
-    const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
-    const bb = Math.round(c1[2] + (c2[2] - c1[2]) * t);
-    _ringPalette[i] = `rgb(${r},${g},${bb})`;
+    const t = (i / N) * stops.length;
+    const si = Math.floor(t) % stops.length;
+    const ni = (si + 1) % stops.length;
+    const f = t - Math.floor(t);
+    const c1 = stops[si], c2 = stops[ni];
+    const r = Math.round(c1[0] + (c2[0] - c1[0]) * f);
+    const g = Math.round(c1[1] + (c2[1] - c1[1]) * f);
+    const b = Math.round(c1[2] + (c2[2] - c1[2]) * f);
+    _ringPalette[i] = `rgb(${r},${g},${b})`;
   }
 }
 function ringColorAt(worldAngle) {
@@ -886,16 +887,7 @@ function onSolBodyClick(id) {
 /* ═══════════════════════════════════════════════════════════════
    6.7 ECOSYSTEMS + SWAP BODIES
    ═══════════════════════════════════════════════════════════════ */
-const ECOSYSTEMS = [
-  { key: 'eth', name: 'Ethereum', symbol: 'ETH', color: '#627EEA', chainId: 'ethereum',
-    logo: 'https://i.postimg.cc/9XpN1Bhs/images-(12).png' },
-  { key: 'bnb', name: 'BNB Chain', symbol: 'BNB', color: '#F3BA2F', chainId: 'bsc',
-    logo: 'https://i.postimg.cc/T29HQc6Z/images-(10).png' },
-  { key: 'avax', name: 'Avalanche', symbol: 'AVAX', color: '#E84142', chainId: 'avalanche',
-    logo: 'https://i.postimg.cc/KYJsxd7L/XTVCAVAX-600.png' },
-  { key: 'rh', name: 'Robinhood', symbol: 'RH', color: '#CCFF00', chainId: 'robinhood',
-    logo: 'https://i.postimg.cc/gcXdtDm9/images-(9)-(1).png' }
-];
+const ECOSYSTEMS = []; // Solana-only universe
 
 ECOSYSTEMS.forEach(e => {
   e.img = new Image();
@@ -903,7 +895,7 @@ ECOSYSTEMS.forEach(e => {
   e.lastCoinAddAt = -99;
 });
 
-const BODY_KEYS = ['eth', 'bnb', 'avax', 'rh', 'sol'];
+const BODY_KEYS = ['sol'];
 const BODIES = BODY_KEYS.map((key, i) => ({
   key,
   isSol: key === 'sol',
@@ -927,9 +919,9 @@ function currentEcoKey() {
 }
 
 function layoutEcosystems() {
+  // Solana-only: belt orbits just outside the coin lanes
   ECO_RING.radius = outerR * 1.18;
   ECO_RING.elevation = 0;
-  outerR = Math.max(outerR, ECO_RING.radius * 1.08);
 }
 
 function initBodies() {
@@ -1468,6 +1460,7 @@ const waves = [];
 const parts = [];
 
 const caCam = { cy: 1, sy: 0, cp: 1, sp: 0 };
+const SUN_SCREEN = { x: 0, y: 0, z: 0, r: 0 };
 
 function P(x, y, z, noT) {
   if (!noT) { x -= cam.tx; y -= cam.ty; z -= cam.tz; }
@@ -1578,7 +1571,7 @@ const HY = {};
 let ALL = [], byId = {};
 const LANES = [];
 let BELTS = [];
-let outerR = 320, sizeMul = 1;
+let outerR = 340, sizeMul = 1;
 
 function hyd(d) {
   if (HY[d.id]) return HY[d.id];
@@ -1646,7 +1639,7 @@ async function refreshAllStats() {
 }
 
 function laneDef(i) {
-  const r = 320 + i * 108;
+  const r = 340 + i * 116;
   const e = 0.03 + (Math.sin(i * 12.9898) * 0.5 + 0.5) * 0.09;
   const inc = (i % 2 ? -1 : 1) * (0.06 + (Math.sin(i * 78.233) * 0.5 + 0.5) * 0.24);
   const node = i * 2.399963;
@@ -1690,9 +1683,9 @@ function mkBelt(r, w, th, n, dir) {
     B.cx[i] = Math.cos(a); B.sx[i] = Math.sin(a);
     B.rr[i] = r + g3() * w; B.yy[i] = g3() * th;
 
-    const nv = 3 + Math.floor(Math.random() * 3);   // 3–5 sided rocks
+    const nv = 3 + Math.floor(Math.random() * 4);   // 3–6 sided rocks
     B.nv[i]   = nv;
-    B.sz[i]   = 0.5 + Math.random() * 0.8;          // smaller, separated
+    B.sz[i]   = 0.4 + Math.random() * 1.4;          // bigger variety
     B.rot[i]  = Math.random() * TAU;
     B.spin[i] = (Math.random() - 0.5) * 1.8;
     for (let k = 0; k < nv; k++) {
@@ -1739,7 +1732,7 @@ function layout() {
     const k = c.ecoKey || '__sol';
     if (counts[k] !== undefined) counts[k]++;
   }
-  let maxR = 320;
+  let maxR = 340;
   for (const k in counts) {
     const n = counts[k];
     if (!n) continue;
@@ -1750,7 +1743,7 @@ function layout() {
       maxLane = ln;
       ln++;
     }
-    const r = (320 + maxLane * 108) * 1.12;
+    const r = (340 + maxLane * 116) * 1.12;
     if (r > maxR) maxR = r;
   }
   outerR = maxR;
@@ -1760,7 +1753,7 @@ function layout() {
 
   BELTS = [];
   // Single OUTER asteroid belt — circles the eco orbit, always present on every chain
-  BELTS.push(mkBelt(ECO_RING.radius, 34, 16, 500, -1));
+  BELTS.push(mkBelt(ECO_RING.radius, 52, 24, 800, -1));
 }
 
 const defDist = () => clamp((outerR + 110) * 2.0, 1250, 7500);
@@ -1851,7 +1844,7 @@ function drawBelts(front, zs) {
       if (z < 40) continue;
       if ((z <= zs) !== front) continue;
 
-      const s   = clamp(F / z * 3, 0.8, 3.5) * B.sz[i];
+      const s   = clamp(F / z * 3, 1.0, 4.2) * B.sz[i];
       const ang = B.rot[i] + T * B.spin[i];
       const ca  = Math.cos(ang), sa = Math.sin(ang);
       const nv  = B.nv[i];
@@ -1936,7 +1929,7 @@ function drawMoon(m) {
 }
 
 const TX = new Float32Array(40), TY = new Float32Array(40);
-function drawPlanet(c, sp) {
+function drawPlanet(c, sp, alphaMul = 1) {
   const prog = clamp((RT - c.born) / 0.9, 0, 1);
   if (prog <= 0) return;
   const sc = easeOutBack(prog);
@@ -1944,6 +1937,8 @@ function drawPlanet(c, sp) {
   const sz = c.baseSize * sizeMul;
   const r = Math.max(sz * p.s, 11) * sc;
   const act = selId === c.id, hov = hoverId === c.id;
+
+  ctx.globalAlpha = alphaMul;
 
   const chg = (typeof c.change24 === 'number') ? c.change24 : 0;
   const isUp = chg >= 0;
@@ -1961,11 +1956,11 @@ function drawPlanet(c, sp) {
   }
   if (nt > 1) {
     ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round'; ctx.strokeStyle = c.color;
+    ctx.lineCap = 'round'; ctx.strokeStyle = trendColor;
     for (let g = 0; g < 7; g++) {
       const a = g * 5, b = Math.min(nt, (g + 1) * 5);
       if (a >= nt) break;
-      ctx.globalAlpha = (act ? 0.9 : 0.55) * (1 - g / 7.5) * sc;
+      ctx.globalAlpha = (act ? 0.9 : 0.55) * (1 - g / 7.5) * sc * alphaMul;
       ctx.lineWidth = Math.max(1.5, r * 0.6 * (1 - g / 7));
       ctx.beginPath();
       ctx.moveTo(TX[a], TY[a]);
@@ -1973,7 +1968,7 @@ function drawPlanet(c, sp) {
       ctx.stroke();
     }
     ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = alphaMul;
   }
 
   const atmosR = r * (1.95 + Math.sin(RT * 1.4 + c.born) * 0.14);
@@ -2004,7 +1999,7 @@ function drawPlanet(c, sp) {
     const kk = clamp((c.typingPulse - RT) / 1.4, 0, 1);
     ctx.save();
     ctx.strokeStyle = c.color;
-    ctx.globalAlpha = kk;
+    ctx.globalAlpha = kk * alphaMul;
     ctx.lineWidth = 2.5 + (1 - kk) * 3;
     ctx.beginPath();
     ctx.arc(p.x, p.y, r * (1.25 + (1 - kk) * 1.4), 0, TAU);
@@ -2055,22 +2050,22 @@ function drawPlanet(c, sp) {
 
   ctx.lineWidth = 1.8 + (act ? 0.9 : 0);
   ctx.strokeStyle = trendColor;
-  ctx.globalAlpha = act ? 1 : 0.85;
+  ctx.globalAlpha = (act ? 1 : 0.85) * alphaMul;
   ctx.shadowColor = trendColor;
   ctx.shadowBlur = act ? 12 : 6;
   ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.stroke();
   ctx.shadowBlur = 0;
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = alphaMul;
 
   for (const m of moons) if (m.z <= p.z) drawMoon(m);
 
   if (prog < 1) {
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = (1 - prog) * 0.8;
+    ctx.globalAlpha = (1 - prog) * 0.8 * alphaMul;
     ctx.fillStyle = c.color;
     ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.5, 0, TAU); ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = alphaMul;
   }
 
   if (act || hov) {
@@ -2210,6 +2205,7 @@ function frame(now) {
 
   P(0, 0, 0);
   const sp = { x: PX, y: PY, z: PZ, s: PS };
+  SUN_SCREEN.x = PX; SUN_SCREEN.y = PY; SUN_SCREEN.z = PZ; SUN_SCREEN.r = 235 * PS;
 
   const list = [];
 
@@ -2226,7 +2222,15 @@ function frame(now) {
       P(c.pos[0], c.pos[1], c.pos[2]);
       if (PZ < 40) continue;
       c.pj.x = PX; c.pj.y = PY; c.pj.z = PZ; c.pj.s = PS;
-      list.push({ z: PZ, f: () => drawPlanet(c, sp) });
+      let alphaMul = 1;
+      if (SUN_SCREEN.r > 0 && c.pj.z > SUN_SCREEN.z) {
+        const sDist = Math.hypot(c.pj.x - SUN_SCREEN.x, c.pj.y - SUN_SCREEN.y);
+        if (sDist < SUN_SCREEN.r * 1.25) {
+          const inside = clamp(1 - sDist / (SUN_SCREEN.r * 1.25), 0, 1);
+          alphaMul = 0.30 + (1 - inside) * 0.70;
+        }
+      }
+      list.push({ z: PZ, f: () => drawPlanet(c, sp, alphaMul) });
     }
   }
 
