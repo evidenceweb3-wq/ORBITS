@@ -1,3045 +1,565 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ORBITS — Social Universe</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
-<script src="https://plugin.jup.ag/plugin-v1.js" data-preload defer></script>
-<style>
-:root{
-  --ui:#e9ecff;--mut:#8b91b8;--c:#ffb347;--green:#22c55e;--red:#ef4444;
-  --sol-purple:#9945FF;--sol-green:#14F195;--glass-border:rgba(255,255,255,.08);
-  --font-mono:'Share Tech Mono',ui-monospace,'SF Mono',monospace;
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0}
-html,body{height:100%;overflow:hidden;color:var(--ui);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-body{background:radial-gradient(120% 90% at 50% 40%,#10122b 0%,#070815 55%,#03040a 100%)}
-canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;display:block;transition:filter 2s cubic-bezier(.16,1,.3,1),transform 2s cubic-bezier(.16,1,.3,1)}
-canvas.drag{cursor:grabbing}
-canvas.hit{cursor:pointer}
-body.booting{cursor:wait}
-body.booting canvas{filter:blur(28px) brightness(.5);transform:scale(1.12);pointer-events:none}
-body.booting .top,body.booting .dock,body.booting .sheet{opacity:0;pointer-events:none}
-.top{position:fixed;top:0;left:0;right:0;padding:calc(12px + env(safe-area-inset-top)) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:5;transition:opacity 1.5s ease}
-.brand b{font-size:18px;letter-spacing:.32em;font-weight:800;background:linear-gradient(135deg,#fff 0%,#ffd27a 50%,#ffb347 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 14px rgba(255,170,80,.45))}
-.brand small{display:block;color:var(--mut);font-size:11px;margin-top:4px;letter-spacing:.04em;max-width:190px;line-height:1.35}
-.project-ca{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 10px;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.55);border-radius:6px;font:800 .7rem var(--font-mono);color:var(--c);cursor:pointer;transition:all .2s ease;text-decoration:none;box-shadow:inset 0 0 10px rgba(255,179,71,.08);pointer-events:auto}
-.project-ca:hover{background:rgba(255,179,71,.2);box-shadow:0 0 12px rgba(255,179,71,.35);color:#fff}
-.tools{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;pointer-events:auto}
-@media(max-width:560px){.tools{flex-direction:column;align-items:flex-end;gap:6px}.brand small{display:none}.project-ca{font-size:.62rem;padding:3px 7px}}
-.btn{background:rgba(20,23,48,.72);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:7px 13px;font:600 12px system-ui;backdrop-filter:blur(10px);cursor:pointer;transition:all .2s;white-space:nowrap}
-.btn:hover{border-color:#ffd27a;color:#ffd27a;box-shadow:0 0 12px rgba(255,210,122,.2)}
-.btn.connected{border-color:var(--green);color:var(--green);box-shadow:0 0 12px rgba(34,197,94,.25)}
-.btn.connected:hover{border-color:var(--red);color:var(--red);box-shadow:0 0 12px rgba(239,68,68,.25)}
-.online-badge{position:fixed;left:50%;transform:translateX(-50%);top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;gap:7px;background:rgba(14,17,38,.82);border:1px solid rgba(255,179,71,.55);padding:6px 15px;border-radius:999px;font:800 12px var(--font-mono);letter-spacing:.1em;color:var(--c);box-shadow:0 0 15px rgba(255,179,71,.18),inset 0 0 10px rgba(255,179,71,.08);pointer-events:auto;backdrop-filter:blur(12px);z-index:10}
-.online-badge .dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green),0 0 16px var(--green);animation:pulse-dot 2s infinite}
-@keyframes pulse-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.55);opacity:.5}}
-@media(max-width:560px){.online-badge{top:calc(82px + env(safe-area-inset-top));font-size:11px;padding:5px 12px}}
-.dock{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:4;scrollbar-width:none;transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity 1.5s ease}
-.dock::-webkit-scrollbar{display:none}
-.dock.hide{transform:translateY(120%);opacity:0;pointer-events:none}
-.chip{flex:none;display:flex;align-items:center;gap:7px;background:rgba(14,17,38,.78);border:1px solid rgba(255,255,255,.14);color:var(--ui);border-radius:999px;padding:5px 12px 5px 5px;font:600 13px system-ui;backdrop-filter:blur(10px);cursor:pointer;transition:all .2s;white-space:nowrap}
-.chip:hover{border-color:var(--c);transform:translateY(-1px)}
-.chip img{width:26px;height:26px;border-radius:50%;display:block;object-fit:cover}
-.chip.core,.chip.add{padding-left:12px;color:#ffd27a;border-color:rgba(255,210,122,.45)}
-.chip.core:hover,.chip.add:hover{background:rgba(255,210,122,.1)}
-.sheet{position:fixed;left:50%;bottom:8px;width:calc(100% - 16px);max-width:760px;height:88vh;height:88dvh;display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(9,11,24,.78),rgba(9,11,24,.96));backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);border-radius:24px;border:1px solid var(--glass-border);border-top:2px solid var(--c);box-shadow:0 32px 80px rgba(0,0,0,.7),0 8px 24px rgba(0,0,0,.5),0 0 40px color-mix(in srgb,var(--c) 20%,transparent);transform:translate(-50%, calc(100% + 40px));transition:transform .42s cubic-bezier(.2,.8,.2,1),background .3s;z-index:6;will-change:transform}
-.sheet.open{transform:translate(-50%, 0)}
-@media (min-width: 700px){.sheet{top:50%;bottom:auto;height:min(80vh, calc(100vh - 120px));transform:translate(-50%, calc(-50% + 40px)) scale(.97);opacity:0;pointer-events:none;transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .32s ease,background .3s}.sheet.open{transform:translate(-50%, -50%) scale(1);opacity:1;pointer-events:auto}}
-.grab{width:38px;height:4px;border-radius:4px;background:rgba(255,255,255,.18);margin:8px auto 2px;flex:none}
-.head{display:flex;align-items:flex-start;gap:12px;padding:8px 16px 14px;flex:none}
-.head img,.head .av{width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;align-self:center;box-shadow:0 0 18px color-mix(in srgb,var(--c) 55%,transparent)}
-.head .t{flex:1;min-width:0}
-.head-top{display:flex;align-items:center;gap:8px}
-.head-top h2{margin:0;font-size:18px;font-weight:800;letter-spacing:.01em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.head-actions{display:flex;gap:6px;flex:none;align-items:center}
-.head .x{background:none;border:0;color:var(--mut);font-size:24px;cursor:pointer;padding:0 4px;line-height:1;transition:color .2s}
-.head .x:hover{color:#ff5c7c}
-.head .icon-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--ui);font-size:14px;cursor:pointer;padding:6px 9px;border-radius:9px;transition:all .2s;line-height:1}
-.head .icon-btn:hover{background:rgba(255,179,71,.15);border-color:var(--c);color:var(--c)}
-.head .icon-btn.danger:hover{background:rgba(239,68,68,.15);border-color:var(--red);color:var(--red)}
-.head-meta{margin:2px 0 0;color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.head-stats{display:flex;align-items:center;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);flex-wrap:wrap;row-gap:6px;min-height:22px}
-.hs{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
-.hs-l{font-size:9px;letter-spacing:.1em;color:var(--mut);font-weight:800;text-transform:uppercase}
-.hs-v{font-size:13px;font-weight:800;color:var(--ui);font-variant-numeric:tabular-nums;font-family:var(--font-mono);letter-spacing:-.01em;transition:color .3s}
-.hs-v.big{font-size:15px}
-.hs-v.price{color:var(--c)}
-.hs-v.pos{color:var(--green)}
-.hs-v.neg{color:var(--red)}
-.hs-loading{font-size:11px;color:var(--mut);font-style:italic;letter-spacing:.04em;animation:skeletonPulse 1.5s ease-in-out infinite}
-@keyframes skeletonPulse{0%,100%{opacity:.4}50%{opacity:.75}}
-@media(max-width:480px){.head-stats{gap:10px}.hs-v{font-size:12px}.hs-v.big{font-size:13.5px}.hs-l{font-size:8.5px}}
-.feed-wrap{flex:1;position:relative;min-height:0}
-.feed-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:36px;background:linear-gradient(to top,rgba(9,11,24,.85),transparent);pointer-events:none}
-.feed{height:100%;overflow-y:auto;padding:10px 16px 20px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--c) 50%,transparent) transparent;scroll-behavior:smooth}
-.feed::-webkit-scrollbar{width:6px}
-.feed::-webkit-scrollbar-track{background:transparent}
-.feed::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--c) 50%,transparent);border-radius:4px}
-.feed::-webkit-scrollbar-thumb:hover{background:var(--c)}
-.msg{display:flex;gap:10px;padding:9px 11px;border-radius:12px;background:rgba(255,255,255,.028);border:1px solid rgba(255,255,255,.04);transition:background .15s,border-color .15s;animation:msgIn .32s cubic-bezier(.2,.8,.2,1)}
-.msg:hover{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.08)}
-.msg.mine{background:color-mix(in srgb,var(--c) 8%,transparent);border-color:color-mix(in srgb,var(--c) 22%,transparent)}
-@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.msg-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font:800 12px system-ui;color:#fff;box-shadow:0 0 10px rgba(0,0,0,.35)}
-.msg-body{flex:1;min-width:0}
-.msg-head{display:flex;gap:8px;align-items:baseline;margin-bottom:3px}
-.msg-head b{font-size:12.5px;color:var(--ui);font-weight:700}
-.msg-head span{font-size:10.5px;color:var(--mut)}
-.msg-body p{margin:0;font-size:14px;line-height:1.45;word-break:break-word;color:#dde2f5}
-.loading{color:var(--mut);font-size:13px;text-align:center;padding:24px;font-style:italic}
-.jump-btn{position:absolute;right:16px;bottom:12px;width:38px;height:38px;border-radius:50%;background:var(--c);border:0;color:#0a0b16;font:800 16px system-ui;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4),0 0 12px color-mix(in srgb,var(--c) 50%,transparent);display:none;place-items:center;z-index:2;transition:transform .2s}
-.jump-btn.show{display:grid}
-.jump-btn:hover{transform:scale(1.08)}
-.compose{display:flex;gap:8px;padding:10px 16px calc(14px + env(safe-area-inset-bottom));flex:none;border-top:1px solid rgba(255,255,255,.05);background:rgba(9,11,24,.75);border-radius:0 0 23px 23px}
-.compose-wrap{flex:1;position:relative;min-width:0}
-.compose input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:var(--ui);padding:12px 60px 12px 14px;font:14px system-ui;outline:none;transition:border-color .2s,background .2s}
-.compose input:focus{border-color:var(--c);background:rgba(255,255,255,.08)}
-.compose input:disabled{opacity:.45;cursor:not-allowed}
-.char-count{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums;pointer-events:none;opacity:0;transition:opacity .2s}
-.compose input:focus ~ .char-count{opacity:1}
-.compose button{background:linear-gradient(135deg,var(--c),#ffd27a);border:0;border-radius:12px;color:#0a0b16;font:800 13px system-ui;padding:0 20px;cursor:pointer;transition:filter .2s,box-shadow .2s;white-space:nowrap}
-.compose button:hover{filter:brightness(1.1);box-shadow:0 0 16px rgba(255,179,71,.4)}
-.compose button:disabled{opacity:.4;cursor:not-allowed;filter:none;box-shadow:none}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);z-index:20;display:none;place-items:center;padding:20px}
-.modal.open{display:grid}
-.modal-box{background:linear-gradient(180deg,rgba(20,23,48,.98),rgba(14,17,38,.98));border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:24px;width:100%;max-width:420px;box-shadow:0 24px 48px rgba(0,0,0,.85),0 0 40px rgba(255,179,71,.12);animation:modalIn .28s cubic-bezier(.2,.8,.2,1)}
-@keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-.modal-head h3{margin:0;color:#ffd27a;font-size:16px;letter-spacing:.06em;font-weight:800}
-.modal-x{background:none;border:0;color:var(--mut);font-size:24px;cursor:pointer;padding:0 4px;line-height:1;transition:color .2s}
-.modal-x:hover{color:#ff5c7c}
-.modal-box input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:13px;font:14px system-ui;margin-bottom:16px;border-radius:12px;outline:none;transition:border-color .2s}
-.modal-box input:focus{border-color:#ffd27a}
-.modal-box button.primary{width:100%;background:#ffd27a;border:0;color:#0a0b16;padding:13px;font:800 14px system-ui;border-radius:12px;cursor:pointer;transition:all .2s}
-.modal-box button.primary:hover{filter:brightness(1.1);box-shadow:0 0 18px rgba(255,210,122,.4)}
-.modal-box button.primary:disabled{opacity:.5;cursor:not-allowed;filter:none;box-shadow:none}
-.modal-box p{margin:0 0 22px;color:var(--ui);font-size:14.5px;line-height:1.55;text-align:center}
-#toast-container{position:fixed;top:calc(80px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{background:rgba(20,23,48,.96);border:1px solid var(--c);color:#fff;padding:10px 20px;border-radius:10px;font:600 13.5px system-ui;box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 18px color-mix(in srgb,var(--c) 40%,transparent);animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;white-space:nowrap}
-@keyframes toastIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes toastOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-12px)}}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Launchpad Pump.fun - Epic Edition</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0b0b0e; color: #e0e0e0; margin: 0; padding: 8px; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .app-container { display: grid; grid-template-columns: 340px 1fr; gap: 12px; width: 100%; max-width: 1200px; height: 98vh; max-height: 850px; }
+        
+        .panel { background: #15151a; border: 1px solid #2a2a35; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.4); overflow: hidden; }
+        .panel-scroll { overflow-y: auto; flex: 1; padding-right: 4px; }
+        .panel-scroll::-webkit-scrollbar { width: 4px; }
+        .panel-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        
+        h1, h2, h3 { color: #fff; margin-top: 0; margin-bottom: 8px; font-weight: 600; }
+        h2 { font-size: 0.85rem; color: #a8a8b3; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 10px; }
+        
+        button { background: #9945FF; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 0.85rem; }
+        button:hover:not(:disabled) { background: #7a35d6; transform: translateY(-1px); }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; }
+        
+        input { padding: 8px; border-radius: 6px; border: 1px solid #2a2a35; background: #0b0b0e; color: #fff; margin-bottom: 6px; width: 100%; font-size: 0.85rem; outline: none; }
+        input:focus { border-color: #9945FF; }
+        input[type="file"] { padding: 5px; font-size: 0.75rem; }
+        
+        .status { font-size: 0.75rem; color: #14F195; margin-top: 4px; word-break: break-all; white-space: pre-wrap; line-height: 1.2; }
+        .error { color: #ff6b6b !important; }
+        
+        .token-card { display: flex; gap: 10px; background: #0b0b0e; border: 1px solid #2a2a35; padding: 8px 10px; border-radius: 10px; align-items: center; margin-bottom: 8px; }
+        .token-card img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: #222; }
+        .token-info { flex: 1; overflow: hidden; }
+        .token-name { font-weight: bold; font-size: 1rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .token-symbol { color: #14F195; font-size: 0.8rem; }
+        
+        .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+        .metric-box { background: #0b0b0e; border: 1px solid #2a2a35; padding: 6px; border-radius: 8px; text-align: center; }
+        .metric-box span { display: block; font-size: 0.65rem; color: #888; text-transform: uppercase; }
+        .metric-box strong { font-size: 0.9rem; color: #fff; }
+        
+        .chart-container { flex: 1; min-height: 160px; width: 100%; position: relative; background: #0b0b0e; border-radius: 8px; border: 1px solid #2a2a35; overflow: hidden; margin-bottom: 8px; }
+        
+        .trade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .quick-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px; }
+        .quick-buttons button { background: #1f1f28; color: #e0e0e0; font-size: 0.7rem; padding: 4px; border: 1px solid #2a2a35; }
+        .quick-buttons button:hover { background: #333; color: #fff; }
+        
+        hr { border: 0; border-top: 1px solid #2a2a35; margin: 10px 0; }
+        
+        .jwt-wrapper { display: flex; gap: 6px; align-items: center; margin-bottom: 6px;}
+        .jwt-wrapper input { margin-bottom: 0; flex: 1; }
+        .jwt-wrapper button { background: #14F195; color: #000; padding: 8px; font-size: 0.75rem; }
+        .jwt-wrapper button:hover { background: #0fbf75; }
 
-.eco-banner{
-  position:fixed;top:calc(80px + env(safe-area-inset-top));left:50%;
-  transform:translateX(-50%);display:none;align-items:center;gap:8px;
-  background:rgba(14,17,38,.94);border:1px solid var(--eco-color, rgba(255,140,60,.65));
-  padding:8px 6px 8px 16px;border-radius:999px;
-  font:700 13px system-ui;color:var(--eco-color, #ffb27a);
-  box-shadow:0 0 24px var(--eco-color, rgba(255,140,60,.35)), inset 0 0 12px rgba(255,140,60,.08);
-  backdrop-filter:blur(14px);z-index:8;
-  animation:ecoBannerIn .3s cubic-bezier(.2,.8,.2,1);
-}
-@keyframes ecoBannerIn{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-.eco-banner.show{display:flex}
-.eco-banner .eco-ic{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--eco-color, #ff8c3c);color:#0a0b16;font:900 10px system-ui;letter-spacing:.02em}
-.eco-banner .eco-count{background:color-mix(in srgb, var(--eco-color, #ff8c3c) 22%, transparent);padding:3px 9px;border-radius:999px;font-size:11px;letter-spacing:.04em}
-.eco-banner .eco-add{background:rgba(255,255,255,.08);border:0;color:var(--eco-color,#ffb27a);width:26px;height:26px;border-radius:50%;cursor:pointer;font:700 16px/1 system-ui;display:grid;place-items:center;transition:all .2s}
-.eco-banner .eco-add:hover{background:var(--eco-color,#ffb27a);color:#0a0b16}
-.eco-banner .eco-close{background:rgba(255,255,255,.08);border:0;color:var(--eco-color, #ffb27a);width:26px;height:26px;border-radius:50%;cursor:pointer;font:16px/1 system-ui;display:grid;place-items:center;transition:all .2s}
-.eco-banner .eco-close:hover{background:rgba(239,68,68,.25);color:#ef4444}
-@media(max-width:560px){.eco-banner{top:calc(130px + env(safe-area-inset-top));font-size:12px;padding:7px 6px 7px 14px}}
-
-/* ═══ PRICE HUD (top-right) ═══ */
-.price-hud{
-  position:fixed;top:calc(64px + env(safe-area-inset-top));right:14px;
-  display:none;flex-direction:column;gap:6px;
-  background:linear-gradient(180deg,rgba(12,15,32,.94),rgba(6,8,20,.96));
-  border:1px solid rgba(255,255,255,.12);border-radius:14px;
-  padding:11px 14px;backdrop-filter:blur(16px) saturate(140%);
-  -webkit-backdrop-filter:blur(16px) saturate(140%);
-  font:800 12px var(--font-mono);color:var(--ui);z-index:5;
-  box-shadow:0 8px 28px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.03);
-  min-width:158px;max-width:210px;
-  transition:opacity .25s,transform .25s;transform:translateY(-4px);opacity:0;
-}
-.price-hud.show{display:flex;opacity:1;transform:translateY(0)}
-.price-hud .ph-name{font:800 11px system-ui;letter-spacing:.05em;color:var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:2px}
-.price-hud .ph-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
-.price-hud .ph-label{font-size:8.5px;letter-spacing:.12em;color:var(--mut);font-weight:800;text-transform:uppercase}
-.price-hud .ph-price{font-size:15px;font-weight:900;color:var(--c);font-variant-numeric:tabular-nums}
-.price-hud .ph-change{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
-.price-hud .ph-change.pos{color:var(--green);text-shadow:0 0 8px rgba(34,197,94,.35)}
-.price-hud .ph-change.neg{color:var(--red);text-shadow:0 0 8px rgba(239,68,68,.35)}
-.price-hud .ph-mcap{font-size:11px;color:var(--ui);font-variant-numeric:tabular-nums}
-@media(max-width:560px){.price-hud{top:calc(132px + env(safe-area-inset-top));right:10px;padding:9px 12px;min-width:140px}}
-
-/* ═══ REACTION CHIPS ═══ */
-.rx-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
-.rx-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:var(--ui);border-radius:10px;padding:2px 8px;font:600 11.5px system-ui;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:4px;line-height:1.4}
-.rx-chip:hover{background:rgba(255,255,255,.12);border-color:var(--c);transform:translateY(-1px)}
-.rx-chip.mine{background:color-mix(in srgb,var(--c) 22%,transparent);border-color:var(--c);color:#fff}
-.rx-add{background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.16);color:var(--mut);border-radius:10px;padding:2px 8px;font:600 11px system-ui;cursor:pointer;transition:all .15s;line-height:1.4}
-.rx-add:hover{border-color:var(--c);color:var(--c);background:rgba(255,179,71,.06)}
-.rx-picker{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:rgba(14,17,38,.99);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:5px;gap:2px;box-shadow:0 12px 32px rgba(0,0,0,.7);z-index:30;white-space:nowrap}
-.rx-picker.show{display:flex}
-.rx-pick-btn{background:none;border:0;font-size:20px;cursor:pointer;padding:4px 6px;border-radius:8px;transition:all .15s;line-height:1}
-.rx-pick-btn:hover{background:rgba(255,255,255,.14);transform:scale(1.2)}
-
-/* ═══ WARP CHIP ═══ */
-.chip.warp{padding-left:12px;color:#c4b5fd;border-color:rgba(167,139,250,.45);background:linear-gradient(135deg,rgba(167,139,250,.12),rgba(139,92,246,.04))}
-.chip.warp:hover{background:rgba(167,139,250,.22);box-shadow:0 0 14px rgba(167,139,250,.5);border-color:#a78bfa}
-</style>
+        .saved-tokens-list { max-height: 120px; overflow-y: auto; border: 1px solid #2a2a35; border-radius: 8px; padding: 4px; margin-top: 4px; }
+        .saved-token-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; border-bottom: 1px solid #222; cursor: pointer; border-radius: 4px; }
+        .saved-token-item:hover { background: #2a2a35; }
+        .saved-token-item:last-child { border-bottom: none; }
+        .saved-token-symbol { font-weight: bold; color: #14F195; font-size: 0.8rem; }
+        .saved-token-mint { font-size: 0.65rem; color: #888; }
+        
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .graduated-badge { font-size:0.7rem; background:#14F195; color:#000; padding:2px 6px; border-radius:4px; font-weight:bold; animation: pulse 2s infinite; }
+    </style>
+    <!-- Forzamos una versión estable del gráfico -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
-<body class="booting">
-<canvas id="c"></canvas>
+<body>
 
-<div class="top">
-  <div class="brand">
-    <b>ORBITS</b>
-    <small id="hint">Chatrooms for holders. Just the CA.</small>
-    <div class="project-ca" id="projectCA" title="Copy Project CA">
-      <span class="icon">📋</span>
-      <span class="text">CA: Fqbh...pump</span>
+    <div class="app-container">
+        <!-- COLUMNA IZQUIERDA: Crear Token -->
+        <div class="panel">
+            <h1 style="font-size: 1.2rem; color:#9945FF;">🚀 Launchpad</h1>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; background: #0b0b0e; padding: 8px; border-radius: 8px; border: 1px solid #2a2a35;">
+                <div>
+                    <div style="font-size: 0.65rem; color: #888;">WALLET</div>
+                    <div id="walletBalance" style="font-size: 0.85rem; color: #14F195; font-weight: bold;">0.00 SOL</div>
+                </div>
+                <button id="connectBtn" style="width:auto; margin:0; padding: 6px 10px;">Conectar</button>
+            </div>
+            <p id="walletStatus" class="status" style="margin-top:0; margin-bottom:8px; font-size: 0.65rem;">No conectado</p>
+
+            <div class="panel-scroll">
+                <h2>Crear Token</h2>
+                <div class="jwt-wrapper">
+                    <input id="pinataJwt" type="password" placeholder="Pinata JWT" />
+                    <button id="saveJwtBtn" title="Guardar JWT">💾</button>
+                </div>
+                <input id="tokenName" placeholder="Nombre del Token" />
+                <input id="tokenSymbol" placeholder="Símbolo (ej. MTK)" />
+                <input id="tokenImage" type="file" accept="image/*" />
+                <button id="createTokenBtn" disabled style="width:100%;">Crear + Compra Inicial (0.01 SOL)</button>
+                <p id="createStatus" class="status"></p>
+
+                <h2 style="margin-top: 15px;">Mis Tokens Creados</h2>
+                <button id="loadSavedTokensBtn" disabled style="width:100%; background: #333; font-size: 0.75rem; padding: 4px;">Cargar Mis Tokens</button>
+                <div id="savedTokensList" class="saved-tokens-list" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: Trading y Datos -->
+        <div class="panel">
+            <h2 style="margin-top:0;">Token Activo</h2>
+            <div style="display:flex; gap:6px; margin-bottom: 8px;">
+                <input id="mintAddressInput" placeholder="Mint Address" style="margin-bottom:0;" />
+                <button id="loadTokenBtn" style="width:auto;">Cargar</button>
+            </div>
+
+            <div id="tokenDisplay" style="display:none; flex: 1; flex-direction: column;">
+                <div class="token-card">
+                    <img id="tokenImagePreview" src="https://placehold.co/100x100/1f1f28/14F195?text=Coin" alt="Token" />
+                    <div class="token-info">
+                        <div class="token-name" id="displayName">—</div>
+                        <div class="token-symbol" id="displaySymbol">—</div>
+                    </div>
+                    <div id="graduatedBadge" class="graduated-badge" style="display:none;">GRADUADO</div>
+                </div>
+
+                <div class="metrics-row">
+                    <div class="metric-box"><span>Market Cap</span><strong id="mcap">—</strong></div>
+                    <div class="metric-box"><span>Precio</span><strong id="price">—</strong></div>
+                    <div class="metric-box"><span>Progreso</span><strong id="progress">—</strong></div>
+                </div>
+                
+                <div id="chartContainer" class="chart-container"></div>
+            </div>
+
+            <div id="tradeSection" style="display:none;">
+                <div class="trade-grid">
+                    <!-- COMPRAR -->
+                    <div>
+                        <h2>Comprar</h2>
+                        <div class="quick-buttons">
+                            <button onclick="setSolAmount(0.01)">0.01</button>
+                            <button onclick="setSolAmount(0.05)">0.05</button>
+                            <button onclick="setSolAmount(0.1)">0.1</button>
+                            <button onclick="setSolAmount(0.5)">0.5</button>
+                        </div>
+                        <input id="solAmount" type="number" step="0.001" placeholder="SOL a gastar" />
+                        <button id="buyBtn" disabled style="width:100%;">Comprar</button>
+                    </div>
+
+                    <!-- VENDER -->
+                    <div>
+                        <h2>Vender</h2>
+                        <input id="tokenAmountToSell" type="number" step="any" placeholder="Cantidad" style="margin-top: 24px;" />
+                        <button id="sellBtn" disabled style="width:100%; background:#ff6b6b;">Vender</button>
+                    </div>
+                </div>
+                <p id="tradeStatus" class="status"></p>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <div class="online-badge">
-    <span class="dot"></span>
-    <span id="online-users-count">0</span> ONLINE
-  </div>
-
-  <div class="tools">
-    <button class="btn" id="phantomBtn">CONNECT</button>
-  </div>
-</div>
-
-<div class="eco-banner" id="ecoBanner">
-  <span class="eco-ic" id="ecoIc">ETH</span>
-  <span id="ecoName">Ethereum</span>
-  <span class="eco-count" id="ecoCount">0 COINS</span>
-  <button class="eco-add" id="ecoAddBtn" title="Add coin">+</button>
-  <button class="eco-close" id="ecoClose" title="Back to Solana">×</button>
-</div>
-
-<div class="price-hud" id="priceHUD"></div>
-
-<div class="dock" id="dock"></div>
-<div class="sheet" id="sheet"></div>
-<div id="toast-container"></div>
-
-<div class="modal" id="modal">
-  <div class="modal-box">
-    <div class="modal-head">
-      <h3>Initialize New World</h3>
-      <button class="modal-x" id="modalCloseBtn">✕</button>
-    </div>
-    <input type="text" id="caInput" placeholder="Paste Token CA (Contract Address)…" autocomplete="off" spellcheck="false">
-    <button class="primary" id="createBtn">Launch Planet</button>
-  </div>
-</div>
-
-<div class="modal" id="addCoinModal">
-  <div class="modal-box">
-    <div class="modal-head">
-      <h3 id="addCoinTitle">Add Coin</h3>
-      <button class="modal-x" id="addCoinCloseBtn">✕</button>
-    </div>
-    <p id="addCoinDesc" style="margin-bottom:14px">Paste a contract address.</p>
-    <input type="text" id="addCoinInput" placeholder="Contract address…" autocomplete="off" spellcheck="false">
-    <button class="primary" id="addCoinBtn">Add Coin</button>
-  </div>
-</div>
-
-<div class="modal" id="confirmModal">
-  <div class="modal-box">
-    <div class="modal-head">
-      <h3 style="color:var(--red)">Confirm Action</h3>
-      <button class="modal-x" id="confirmCloseBtn">✕</button>
-    </div>
-    <p id="confirmMessage"></p>
-    <div style="display:flex;gap:12px">
-      <button class="primary" id="confirmCancelBtn" style="background:rgba(255,255,255,.08);color:var(--ui);border:1px solid rgba(255,255,255,.18);box-shadow:none">Cancel</button>
-      <button class="primary" id="confirmYesBtn" style="background:var(--red);color:#fff;box-shadow:0 0 16px rgba(239,68,68,.4)">Delete</button>
-    </div>
-  </div>
-</div>
-
-<script>
-/* ═══════════════════════════════════════════════════════════════
-   0. CONFIG & CLIENT
-   ═══════════════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://lmakgwdrwdhjofgyovkj.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_50c1y3L6RfgVDqZPETvUtA_yZQt5our';
-const HELIUS_RPC = `${SUPABASE_URL}/functions/v1/solana-rpc`;
-const ADMIN_WALLET = '4XAqQmEcJW37ZUqDwwAWhuPy7xfQpTJTLoEUwmi51yuj';
-const PROJECT_CA = 'Fqbhnaxf1iTAA1WhRsWNEoR5TRxAaZ3TPgK5xRa9pump';
-const GENERAL_ROOM = '00000000-0000-0000-0000-000000000000';
-
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-let myUsername = localStorage.getItem('orbit_user') || 'Anon';
-let walletAddress = null;
-let solName = null;
-
-function shortAddr(a) { return a ? a.slice(0, 4) + '…' + a.slice(-4) : 'Anon'; }
-
-async function resolveSolName(wallet) {
-  try {
-    const { getFavoriteDomain } = await import('https://esm.sh/@bonfida/spl-name-service');
-    const conn = new solanaWeb3.Connection(HELIUS_RPC);
-    const res = await getFavoriteDomain(conn, new solanaWeb3.PublicKey(wallet));
-    if (res?.reverse) solName = res.reverse.endsWith('.sol') ? res.reverse : res.reverse + '.sol';
-  } catch (e) { /* no .sol */ }
-}
-
-const phantomBtn = document.getElementById('phantomBtn');
-/* ═══════════════════════════════════════════════════════════════
-   1. UTILITIES
-   ═══════════════════════════════════════════════════════════════ */
-const $ = (id) => document.getElementById(id);
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const TAU = Math.PI * 2;
-
-function esc(s) { return String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
-function initials(n) { const w = String(n || '').trim().split(/\s+/); return (((w[0] || '?')[0] || '?') + (w[1] ? w[1][0] : '')).toUpperCase(); }
-function hashColor(str) { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return `hsl(${Math.abs(h) % 360}, 65%, 52%)`; }
-function fmtPrice(p) { if (!p || p <= 0) return '$0.00'; if (p < 0.00001) return '$' + p.toExponential(2); if (p < 0.001) return '$' + p.toFixed(6); if (p < 1) return '$' + p.toFixed(4); return '$' + p.toLocaleString(undefined, { maximumFractionDigits: 2 }); }
-function fmtBig(n) { if (!n || n <= 0) return '$0'; if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B'; if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M'; if (n >= 1e3) return '$' + (n / 1e3).toFixed(2) + 'K'; return '$' + n.toFixed(0); }
-function relTime(ts) { const m = Math.max(1, Math.round((Date.now() - new Date(ts).getTime()) / 60000)); return m < 60 ? m + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; }
-function hexA(hex, a) {
-  const n = parseInt(hex.replace('#', ''), 16);
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  return `rgba(${r},${g},${b},${a})`;
-}
-function hexRGB(hex) {
-  const n = parseInt(hex.replace('#', ''), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-const _ringPalette = new Array(96).fill('#ffffff');
-function refreshRingPalette() {
-  // Cosmic debris gradient — vivid blues, ambers, corals, mints, violets
-  const stops = [
-    [100, 160, 255], // electric blue
-    [255, 190, 90],  // amber
-    [255, 110, 90],  // coral
-    [90, 240, 170],  // mint
-    [180, 120, 255], // violet
-    [90, 210, 240],  // cyan
-  ];
-  const N = _ringPalette.length;
-  for (let i = 0; i < N; i++) {
-    const t = (i / N) * stops.length;
-    const si = Math.floor(t) % stops.length;
-    const ni = (si + 1) % stops.length;
-    const f = t - Math.floor(t);
-    const c1 = stops[si], c2 = stops[ni];
-    const r = Math.round(c1[0] + (c2[0] - c1[0]) * f);
-    const g = Math.round(c1[1] + (c2[1] - c1[1]) * f);
-    const b = Math.round(c1[2] + (c2[2] - c1[2]) * f);
-    _ringPalette[i] = `rgb(${r},${g},${b})`;
-  }
-}
-function ringColorAt(worldAngle) {
-  const a = ((worldAngle - ringRotation) % TAU + TAU) % TAU;
-  const N = _ringPalette.length;
-  return _ringPalette[Math.floor((a / TAU) * N) % N];
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   2. TOASTS
-   ═══════════════════════════════════════════════════════════════ */
-function showToast(msg, isError = false) {
-  const container = $('toast-container');
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.textContent = msg;
-  if (isError) el.style.borderColor = 'var(--red)';
-  container.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   2.5 PRICE HUD (top-right floating panel)
-   ═══════════════════════════════════════════════════════════════ */
-const priceHUD = $('priceHUD');
-let hudSnapshot = '';
-
-function updatePriceHUD(coin) {
-  if (!coin || !coin.stats) {
-    if (!coin) priceHUD.classList.remove('show');
-    return;
-  }
-  const s = coin.stats;
-  const snap = coin.id + '|' + s.price + '|' + s.change + '|' + s.mcap;
-  if (hudSnapshot === snap) return;   // nothing changed → skip rebuild
-  hudSnapshot = snap;
-  const isUp = s.change >= 0;
-  priceHUD.innerHTML = `
-    <div class="ph-name">${esc((coin.name || '?').slice(0, 22))}</div>
-    <div class="ph-row">
-      <span class="ph-label">Price</span>
-      <span class="ph-price">${fmtPrice(s.price)}</span>
-    </div>
-    <div class="ph-row">
-      <span class="ph-label">24H</span>
-      <span class="ph-change ${isUp ? 'pos' : 'neg'}">${isUp ? '+' : ''}${s.change.toFixed(2)}%</span>
-    </div>
-    <div class="ph-row">
-      <span class="ph-label">MCap</span>
-      <span class="ph-mcap">${fmtBig(s.mcap)}</span>
-    </div>
-  `;
-  priceHUD.classList.add('show');
-}
-function hidePriceHUD() {
-  hudSnapshot = '';
-  priceHUD.classList.remove('show');
-}
-/* ═══════════════════════════════════════════════════════════════
-   3. LIVE SOL PRICE
-   ═══════════════════════════════════════════════════════════════ */
-let solData = null;
-
-async function fetchSolPrice() {
-  try {
-    const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=SOLUSDT');
-    if (r.ok) { const d = await r.json(); return { price: parseFloat(d.lastPrice), change: parseFloat(d.priceChangePercent) }; }
-  } catch (e) {}
-  try {
-    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true');
-    if (r.ok) { const d = await r.json(); return { price: d.solana.usd, change: d.solana.usd_24h_change }; }
-  } catch (e) {}
-  return null;
-}
-
-async function updateSolPrice() {
-  const d = await fetchSolPrice();
-  if (!d) return;
-  solData = d;
-}
-updateSolPrice();
-setInterval(updateSolPrice, 20000);
-
-/* ═══════════════════════════════════════════════════════════════
-   4. WALLET
-   ═══════════════════════════════════════════════════════════════ */
-function updateAuthUI() {
-  if (walletAddress) {
-    phantomBtn.textContent = walletAddress.slice(0, 4) + '…' + walletAddress.slice(-4);
-    phantomBtn.classList.add('connected');
-    phantomBtn.title = 'Click to disconnect';
-  } else {
-    phantomBtn.textContent = 'CONNECT';
-    phantomBtn.classList.remove('connected');
-    phantomBtn.title = 'Connect Phantom wallet';
-  }
-}
-
-async function connectWallet() {
-  const provider = window.phantom?.solana || window.solana;
-  if (!provider) { showToast('Install Phantom to connect', true); return; }
-  try {
-    const resp = await provider.connect();
-    walletAddress = resp.publicKey.toString();
-    localStorage.setItem('orbit_wallet', walletAddress);
-    updateAuthUI();
-    showToast('Wallet connected ✓');
-    if (presenceChannel) presenceChannel.track({ online_at: new Date().toISOString(), wallet: walletAddress });
-
-    try {
-      const msg = new TextEncoder().encode(
-        `ORBITS login\nDomain: ${location.host}\nWallet: ${walletAddress}\nNonce: ${crypto.randomUUID()}\nIssued At: ${new Date().toISOString()}`
-      );
-      const sig = await provider.signMessage(msg, 'utf8');
-      await sb.from('orbit_auth').upsert({
-        wallet: walletAddress,
-        signature: btoa(String.fromCharCode(...sig)),
-        verified_at: new Date().toISOString()
-      }, { onConflict: 'wallet' });
-    } catch (e) { console.warn('[ORBITS] SIWS skipped:', e.message); }
-
-    await resolveSolName(walletAddress);
-
-    if (selId && selId !== 'core' && !ECOSYSTEMS.find(e => e.key === selId)) {
-      const room = ALL.find(c => c.id === selId);
-      if (room) openChat(room.id, room.name, room.color, room.ca);
-    }
-  } catch (e) { showToast('Connection failed', true); }
-}
-
-async function disconnectWallet() {
-  try {
-    const provider = window.phantom?.solana || window.solana;
-    if (provider) await provider.disconnect();
-  } catch (e) {}
-  walletAddress = null;
-  localStorage.removeItem('orbit_wallet');
-  updateAuthUI();
-  showToast('Wallet disconnected');
-  if (presenceChannel) presenceChannel.track({ online_at: new Date().toISOString(), wallet: 'guest' });
-  if (selId && selId !== 'core' && !ECOSYSTEMS.find(e => e.key === selId)) {
-    const room = ALL.find(c => c.id === selId);
-    if (room) openChat(room.id, room.name, room.color, room.ca);
-  }
-}
-
-phantomBtn.onclick = () => { if (walletAddress) disconnectWallet(); else connectWallet(); };
-
-if (localStorage.getItem('orbit_wallet')) {
-  walletAddress = localStorage.getItem('orbit_wallet');
-  const provider = window.phantom?.solana || window.solana;
-  if (provider) provider.connect({ onlyIfTrusted: true }).catch(() => {});
-  resolveSolName(walletAddress);
-}
-updateAuthUI();
-
-$('projectCA').onclick = () => {
-  navigator.clipboard.writeText(PROJECT_CA).then(
-    () => showToast('Project CA copied 📋'),
-    () => showToast('Failed to copy', true)
-  );
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   5. PRESENCE
-   ═══════════════════════════════════════════════════════════════ */
-let presenceChannel = null;
-
-function initPresence() {
-  const clientId = localStorage.getItem('orbit_client_id') || 'c_' + Math.random().toString(36).slice(2);
-  localStorage.setItem('orbit_client_id', clientId);
-  presenceChannel = sb.channel('orbit-online-presence', { config: { presence: { key: clientId } } });
-  presenceChannel
-    .on('presence', { event: 'sync' }, () => {
-      const state = presenceChannel.presenceState();
-      const count = Object.keys(state).length;
-      const el = $('online-users-count');
-      if (el) el.textContent = count;
-    })
-    .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await presenceChannel.track({ online_at: new Date().toISOString(), wallet: walletAddress || 'guest' });
-      }
-    });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   6. TOKEN STATS
-   ═══════════════════════════════════════════════════════════════ */
-const statsCache = new Map();
-const STATS_TTL = 45000;
-let statsReqId = 0;
-
-async function getTokenStats(ca, force = false, ecoKey = null) {
-  if (!ca) return null;
-  const cacheKey = (ecoKey || 'sol') + ':' + ca;
-  const cached = statsCache.get(cacheKey);
-  if (!force && cached && Date.now() - cached.ts < STATS_TTL) return cached.data;
-  try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
-    if (!res.ok) return cached?.data || null;
-    const json = await res.json();
-    let pairs = json.pairs || [];
-    if (!pairs.length) return cached?.data || null;
-
-    const targetChain = chainIdOf(ecoKey);
-    const filtered = pairs.filter(p => p.chainId === targetChain);
-    pairs = filtered.length ? filtered : pairs;
-
-    pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
-    const pair = pairs[0];
-    const data = {
-      price: parseFloat(pair.priceUsd) || 0,
-      change: parseFloat(pair.priceChange?.h24) || 0,
-      volume: parseFloat(pair.volume?.h24) || 0,
-      mcap: parseFloat(pair.marketCap || pair.fdv) || 0,
-      liquidity: parseFloat(pair.liquidity?.usd) || 0,
-      symbol: pair.baseToken?.symbol || '?',
-      name: pair.baseToken?.name || 'Unknown',
-      chainId: pair.chainId
-    };
-    statsCache.set(cacheKey, { data, ts: Date.now() });
-    return data;
-  } catch (e) { return cached?.data || null; }
-}
-
-function renderStatsHTML(data) {
-  if (!data) return '<div class="hs-loading">No market data available</div>';
-  const pos = data.change >= 0;
-  return [
-    `<div class="hs"><span class="hs-l">Price</span><span class="hs-v big price">${fmtPrice(data.price)}</span></div>`,
-    `<div class="hs"><span class="hs-l">24h</span><span class="hs-v ${pos ? 'pos' : 'neg'}">${pos ? '+' : ''}${data.change.toFixed(2)}%</span></div>`,
-    `<div class="hs"><span class="hs-l">Vol</span><span class="hs-v">${fmtBig(data.volume)}</span></div>`,
-    `<div class="hs"><span class="hs-l">MCap</span><span class="hs-v">${fmtBig(data.mcap)}</span></div>`
-  ].join('');
-}
-
-async function renderTokenStats(roomId, ca, container, ecoKey = null) {
-  if (!ca) return;
-  const reqId = ++statsReqId;
-  const cacheKey = (ecoKey || 'sol') + ':' + ca;
-  const cached = statsCache.get(cacheKey);
-  container.innerHTML = cached ? renderStatsHTML(cached.data) : '<div class="hs-loading">Loading market data…</div>';
-  const data = await getTokenStats(ca, true, ecoKey);
-  if (reqId !== statsReqId) return;
-  if (!container.isConnected) return;
-  if (currentRoomId !== roomId) return;
-  container.innerHTML = renderStatsHTML(data);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   6.5 BALANCE CHECK
-   ═══════════════════════════════════════════════════════════════ */
-const balanceCache = new Map();
-const BALANCE_TTL = 60000;
-
-async function heliusRpc(method, params, timeoutMs) {
-  const res = await fetch(HELIUS_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-    body: JSON.stringify({ method, params }),
-    signal: AbortSignal.timeout(timeoutMs || 8000)
-  });
-  if (!res.ok) throw new Error('RPC HTTP ' + res.status);
-  const j = await res.json();
-  if (j.error) throw new Error(j.error.message || 'RPC error');
-  return j.result;
-}
-
-async function fetchTokenBalance(wallet, mint) {
-  const key = wallet + ':' + mint;
-  const cached = balanceCache.get(key);
-  if (cached && Date.now() - cached.ts < BALANCE_TTL) return cached.balance;
-  let balance = 0;
-  let dasOk = false;
-  try {
-    const result = await heliusRpc('getAssetsByOwner', { ownerAddress: wallet, page: 1, limit: 1000, displayOptions: { showFungible: true } }, 6000);
-    const items = result?.items || [];
-    for (const item of items) {
-      if (item.id === mint && item.token_info?.balance) {
-        const decimals = item.token_info.decimals || 0;
-        balance = item.token_info.balance / Math.pow(10, decimals);
-        break;
-      }
-    }
-    dasOk = true;
-  } catch (e) { console.warn('[ORBITS] DAS failed:', e.message); }
-  if (!dasOk) {
-    const result = await heliusRpc('getTokenAccountsByOwner', [wallet, { mint }, { encoding: 'jsonParsed' }], 12000);
-    const accounts = result?.value || [];
-    accounts.forEach(acc => { balance += acc.account.data.parsed?.info?.tokenAmount?.uiAmount || 0; });
-  }
-  balanceCache.set(key, { balance, ts: Date.now() });
-  return balance;
-}
-
-/* ─── UNIFIED CHAIN CONFIG ─── */
-const CHAIN_CONFIG = {
-  sol:  { chainId: 'solana',    kind: 'sol', label: 'Solana',    color: '#14F195' },
-  eth:  { chainId: 'ethereum',  kind: 'evm', label: 'Ethereum',  color: '#627EEA' },
-  bnb:  { chainId: 'bsc',       kind: 'evm', label: 'BNB Chain', color: '#F3BA2F' },
-  avax: { chainId: 'avalanche', kind: 'evm', label: 'Avalanche', color: '#E84142' },
-  rh:   { chainId: 'robinhood', kind: 'evm', label: 'Robinhood', color: '#CCFF00' }
-};
-
-function chainIdOf(ecoKey) {
-  const cfg = CHAIN_CONFIG[ecoKey || 'sol'];
-  return cfg ? cfg.chainId : 'solana';
-}
-
-
-
-/* ═══════════════════════════════════════════════════════════════
-   6.6 SOL ASSETS
-   ═══════════════════════════════════════════════════════════════ */
-const SOL_ICONS = {
-  sol:  '',
-  pump: 'https://i.postimg.cc/ry9HG152/pumplogo.png',
-  x:    'https://i.postimg.cc/66hPVrCN/Xlogo.png',
-  dex:  'https://i.postimg.cc/T2csjVn6/Dex-Logo.png'
-};
-
-const SOL_LINKS = { pump: 'https://pump.fun', x: 'https://x.com', dex: 'https://dexscreener.com' };
-
-// Pump / X / Dex moons temporarily hidden — re-populate to re-enable
-const SOL_BODIES = [];
-
-SOL_BODIES.forEach(b => {
-  const url = SOL_ICONS[b.key];
-  if (url) { b.img = new Image(); b.img.src = url; }
-});
-
-const solLogoImg = (() => {
-  if (!SOL_ICONS.sol) return null;
-  const i = new Image(); i.src = SOL_ICONS.sol; return i;
-})();
-
-function rr(x, y, w, h, r) {
-  ctx.beginPath();
-  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-function solanaMark(x, y, s, color) {
-  const bw = s * 2, bh = s * 0.40, sp = s * 0.60, sk = s * 0.34;
-  ctx.fillStyle = color;
-  for (let i = -1; i <= 1; i++) {
-    const cy2 = y + i * sp, k = i === 0 ? -sk : sk;
-    ctx.beginPath();
-    ctx.moveTo(x - bw / 2 + k, cy2 - bh / 2);
-    ctx.lineTo(x + bw / 2 + k, cy2 - bh / 2);
-    ctx.lineTo(x + bw / 2 - k, cy2 + bh / 2);
-    ctx.lineTo(x - bw / 2 - k, cy2 + bh / 2);
-    ctx.closePath();
-    ctx.fill();
-  }
-}
-
-function drawBall(x, y, r, color, img, glyph, glyphColor) {
-  ctx.save();
-  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
-  if (img && img.complete && img.naturalWidth > 0) {
-    ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
-  } else {
-    ctx.fillStyle = color;
-    ctx.fillRect(x - r, y - r, r * 2, r * 2);
-    if (glyph) {
-      ctx.fillStyle = glyphColor || '#fff';
-      ctx.font = `900 ${Math.round(r * 1.15)}px system-ui,sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(glyph, x, y + r * 0.06);
-    }
-  }
-  const g = ctx.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.05, x, y, r * 1.1);
-  g.addColorStop(0, 'rgba(255,255,255,.32)');
-  g.addColorStop(0.5, 'rgba(255,255,255,0)');
-  g.addColorStop(1, 'rgba(0,0,12,.72)');
-  ctx.fillStyle = g;
-  ctx.fillRect(x - r, y - r, r * 2, r * 2);
-  ctx.restore();
-  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
-  ctx.strokeStyle = 'rgba(255,255,255,.28)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-}
-
-function drawSolPlanet(x, y, r) {
-  ctx.globalCompositeOperation = 'lighter';
-  const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2.4);
-  glow.addColorStop(0, 'rgba(153,69,255,.50)');
-  glow.addColorStop(0.45, 'rgba(20,241,149,.22)');
-  glow.addColorStop(1, 'rgba(153,69,255,0)');
-  ctx.fillStyle = glow;
-  ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, TAU); ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.save();
-  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
-  if (solLogoImg && solLogoImg.complete && solLogoImg.naturalWidth > 0) {
-    ctx.drawImage(solLogoImg, x - r, y - r, r * 2, r * 2);
-  } else {
-    const lg = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
-    lg.addColorStop(0, '#9945FF');
-    lg.addColorStop(1, '#14F195');
-    ctx.fillStyle = lg;
-    ctx.fillRect(x - r, y - r, r * 2, r * 2);
-    solanaMark(x, y, r * 0.52, '#ffffff');
-  }
-  const sh = ctx.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.05, x, y, r * 1.1);
-  sh.addColorStop(0, 'rgba(255,255,255,.30)');
-  sh.addColorStop(0.5, 'rgba(255,255,255,0)');
-  sh.addColorStop(1, 'rgba(0,0,12,.62)');
-  ctx.fillStyle = sh;
-  ctx.fillRect(x - r, y - r, r * 2, r * 2);
-  ctx.restore();
-  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
-  ctx.strokeStyle = 'rgba(20,241,149,.55)';
-  ctx.lineWidth = 1.4;
-  ctx.stroke();
-}
-
-function drawSolHUD(cx, cy) {
-  const price = solData ? fmtPrice(solData.price) : '$--.--';
-  const chg = solData ? (solData.change >= 0 ? '+' : '') + solData.change.toFixed(2) + '%' : '--%';
-  const up = solData ? solData.change >= 0 : true;
-  const pf = '800 12.5px ui-monospace,"SF Mono",Menlo,monospace';
-  const cf = '700 10.5px ui-monospace,"SF Mono",Menlo,monospace';
-  ctx.font = pf; const pw = ctx.measureText(price).width;
-  ctx.font = cf; const cw = ctx.measureText(chg).width;
-  const iconW = 13, g1 = 6, g2 = 8;
-  const total = iconW + g1 + pw + g2 + cw;
-  const h = 22, left = cx - total / 2;
-  rr(left - 11, cy - h / 2, total + 22, h, h / 2);
-  ctx.fillStyle = 'rgba(9,11,24,.82)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(153,69,255,.5)'; ctx.lineWidth = 1; ctx.stroke();
-  solanaMark(left + iconW / 2, cy, 4.6, '#14F195');
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.font = pf; ctx.fillStyle = '#ffffff';
-  ctx.fillText(price, left + iconW + g1, cy + 0.5);
-  ctx.font = cf;
-  ctx.fillStyle = up ? '#14F195' : '#ff5c7c';
-  ctx.fillText(chg, left + iconW + g1 + pw + g2, cy + 0.5);
-}
-
-function drawSolBody(body, px, py, pz, R, centerness, t, list) {
-  const hover = hoverId === 'sol-body';
-  const act = centerness > 0.5;
-
-  list.push({ z: pz, f: () => {
-    drawSolPlanet(px, py, R);
-
-    if (hover) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(px, py, R * 1.25, 0, TAU);
-      ctx.strokeStyle = '#14F195';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      ctx.lineDashOffset = -t * 20;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-      if (centerness > 0.4) {
-      drawSolHUD(px, py - R - 22);
-      const a = clamp((centerness - 0.4) / 0.4, 0, 1);
-      const labelSize = clamp(R * (0.16 + 0.04 * centerness), 10, 20);
-      ctx.globalAlpha = a;
-      ctx.font = `900 ${labelSize}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = act ? '#fff' : 'rgba(225,240,255,.9)';
-      ctx.shadowColor = 'rgba(20,241,149,.85)';
-      ctx.shadowBlur = 8 + centerness * 16;
-      ctx.fillText('SOLANA', px, py + R + 22 + 36);
-      ctx.shadowBlur = 0;
-
-      const gcY = py + R + 22 + 36 + 28;
-      const gcSize = clamp(labelSize * 0.55, 9, 12);
-      ctx.font = `800 ${gcSize}px ui-monospace,'SF Mono',Menlo,monospace`;
-      ctx.fillStyle = act ? '#14F195' : 'rgba(20,241,149,.8)';
-      ctx.shadowColor = 'rgba(20,241,149,1)';
-      ctx.shadowBlur = act ? 18 : 10;
-      ctx.fillText('◇ GENERAL CHAT', px, gcY);
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
-
-      hits.push({ id: 'core', x: px, y: gcY - gcSize * 0.4, r: 72, z: pz - 2 });
-    } else if (R > 8) {
-      ctx.font = `700 ${clamp(R * 0.4, 9, 13)}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = 'rgba(225,240,255,.9)';
-      ctx.shadowColor = 'rgba(20,241,149,.85)';
-      ctx.shadowBlur = 6;
-      ctx.fillText('SOL', px, py + R + 14);
-      ctx.shadowBlur = 0;
-    }
-
-    hits.push({ id: 'sol-body', x: px, y: py, r: R * 1.2, z: pz, bodyKey: 'sol' });
-  }});
-
-    // Pumps orbit Sol at all times — tighter when ringed, wider when centered
-  {
-    const extrasAlpha = 0.6 + clamp((centerness - 0.5) / 0.3, 0, 1) * 0.4;
-    const ORB = R * (1.4 + 1.1 * centerness);
-    const TILT = 0.22;
-
-    for (let i = 0; i < SOL_BODIES.length; i++) {
-      const b = SOL_BODIES[i];
-      const a = b.ang + t * 0.35;
-      // ← FIX: pumps orbit the BODY, not world origin
-      P(body.wx + ORB * Math.cos(a),
-        body.wy + ORB * TILT * Math.sin(a),
-        body.wz + ORB * Math.sin(a));
-      if (PZ < 40) continue;
-      const bx = PX, by = PY, bz = PZ;
-      const pr = Math.max(8, R * 0.14);
-
-      list.push({ z: bz, f: () => {
-        ctx.globalAlpha = extrasAlpha;
-        drawBall(bx, by, pr, b.color, b.img, b.glyph, b.gcol);
-        if (hoverId === b.key) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(bx, by, pr * 1.4, 0, TAU);
-          ctx.strokeStyle = b.color;
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([4, 4]);
-          ctx.lineDashOffset = -t * 15;
-          ctx.stroke();
-          ctx.restore();
+    <!-- IMPORT MAP -->
+    <script type="importmap">
+        {
+            "imports": {
+                "@solana/web3.js": "https://esm.sh/@solana/web3.js@1.98.0",
+                "@nirholas/pump-sdk": "https://esm.sh/@nirholas/pump-sdk@1.32.0",
+                "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+                "bn.js": "https://esm.sh/bn.js@5"
+            }
         }
-        ctx.globalAlpha = 1;
-        hits.push({ id: b.key, x: bx, y: by, r: pr * 1.35, z: bz, sol: true });
-      }});
-    }
-  }
-}
-
-function onSolBodyClick(id) {
-  const url = SOL_LINKS[id];
-  if (url) {
-    const names = { pump: 'pump.fun', x: 'X', dex: 'DexScreener' };
-    showToast(`${names[id] || id} ↗ opening`);
-    window.open(url, '_blank', 'noopener');
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   6.7 ECOSYSTEMS + SWAP BODIES
-   ═══════════════════════════════════════════════════════════════ */
-const ECOSYSTEMS = []; // Solana-only universe
-
-ECOSYSTEMS.forEach(e => {
-  e.img = new Image();
-  e.img.src = e.logo;
-  e.lastCoinAddAt = -99;
-});
-
-const BODY_KEYS = ['sol'];
-const BODIES = BODY_KEYS.map((key, i) => ({
-  key,
-  isSol: key === 'sol',
-  slot: i % 4,
-  isCenter: key === 'sol',
-  wx: 0, wy: 0, wz: 0
-}));
-
-const SLOT_ANGLES = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-
-const ECO_RING = { radius: 0, elevation: 0 };
-let ringRotation = 0;
-
-function getEco(key) { return ECOSYSTEMS.find(e => e.key === key); }
-function getBody(key) { return BODIES.find(b => b.key === key); }
-
-// Which eco's coins are visible right now — null means Solana
-function currentEcoKey() {
-  const c = BODIES.find(b => b.isCenter);
-  return (c && !c.isSol) ? c.key : null;
-}
-
-function layoutEcosystems() {
-  // Solana-only: belt orbits just outside the coin lanes
-  ECO_RING.radius = outerR * 1.18;
-  ECO_RING.elevation = 0;
-}
-
-function initBodies() {
-  for (const b of BODIES) {
-    const [tx, ty, tz] = getTargetPos(b);
-    b.wx = tx; b.wy = ty; b.wz = tz;
-  }
-}
-
-function getTargetPos(body) {
-  if (body.isCenter) return [0, 0, 0];
-  const a = SLOT_ANGLES[body.slot] + ringRotation;
-  return [ECO_RING.radius * Math.cos(a), ECO_RING.elevation, ECO_RING.radius * Math.sin(a)];
-}
-
-/* ─── Transition FX state (softer, still epic) ─── */
-let warp = 0;
-let warpColor = 'rgb(255,255,255)';
-const shocks = [];
-const swapParticles = [];
-let shakeAmount = 0;
-let coloredFlash = 0;
-let coloredFlashColor = '#ffffff';
-
-function triggerSwapFX(color) {
-  warp = 0.55;
-  warpColor = color;
-
-  const now = performance.now() / 1000;
-  shocks.push({ t0: now, color, delay: 0, duration: 1.6, speed: 800, width: 5 });
-  // one shock = one expanding ring, drawn on the orbit plane
-
-  const cx = W / 2, cy = cenY;
-  for (let i = 0; i < 65; i++) {
-    const a = Math.random() * TAU;
-    const sp = 180 + Math.random() * 520;
-    swapParticles.push({
-      x: cx, y: cy,
-      vx: Math.cos(a) * sp,
-      vy: Math.sin(a) * sp,
-      life: 0.6 + Math.random() * 0.8,
-      age: 0,
-      color: i % 4 === 0 ? '#ffffff' : color,
-      size: 2 + Math.random() * 2.5
-    });
-  }
-
-  shakeAmount = 0.35;
-  coloredFlash = 0.5;
-  coloredFlashColor = color;
-}
-
-function triggerCoinAddFX(eco) {
-  eco.lastCoinAddAt = performance.now() / 1000;
-  const body = getBody(eco.key);
-  if (!body) return;
-  P(body.wx, body.wy, body.wz);
-  if (PZ < 40) return;
-  const cx = PX, cy = PY;
-  for (let i = 0; i < 45; i++) {
-    const a = Math.random() * TAU;
-    const sp = 100 + Math.random() * 320;
-    swapParticles.push({
-      x: cx, y: cy,
-      vx: Math.cos(a) * sp,
-      vy: Math.sin(a) * sp,
-      life: 0.5 + Math.random() * 0.7,
-      age: 0,
-      color: i % 3 === 0 ? '#ffffff' : eco.color,
-      size: 2 + Math.random() * 2
-    });
-  }
-}
-
-function swapCenterTo(targetKey) {
-  const target = getBody(targetKey);
-  const current = BODIES.find(b => b.isCenter);
-  if (!target || !current || target === current) return;
-
-  // Close any open chat sheet — a new center is taking over the stage
-  sheet.classList.remove('open');
-  currentRoomId = null;
-  if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
-  if (currentReactionsChannel) { sb.removeChannel(currentReactionsChannel); currentReactionsChannel = null; }
-  if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
-
-    const tempSlot = current.slot;
-  current.slot = target.slot;
-  target.slot = tempSlot;
-
-  current.isCenter = false;
-  target.isCenter = true;
-
-  // Rebuild layout + dock so the new eco's planets show up
-  layout();
-  buildDock();
-
-  // Recenter the new body — reset any offset left from a previous open chat
-  wantCenY = H * 0.5;
-
-  const color = target.isSol ? '#14F195' : getEco(target.key).color;
-  triggerSwapFX(color);
-
-  if (target.isSol) {
-    showEcoBanner(null);
-    selId = null;
-  } else {
-    showEcoBanner(getEco(target.key));
-    selId = target.key;
-  }
-}
-
-function drawBody(body, t, list) {
-  P(body.wx, body.wy, body.wz);
-  if (PZ < 40) return;
-
-  const px = PX, py = PY, pz = PZ, ps = PS;
-
-  const distFromCenter = Math.hypot(body.wx, body.wy, body.wz);
-  const centerness = clamp(1 - distFromCenter / (ECO_RING.radius * 0.85), 0, 1);
-
-  // Sol body: fixed on-screen pixel size — never grows/shrinks with zoom.
-  // Coins keep the normal ps-scaled sizing.
-  let R;
-  if (body.isSol) {
-    const ringPx   = 55;    // ~min radius when Sol is ringed (future eco view)
-    const centerPx = 100;   // radius when Sol is the centerpiece
-    R = ringPx + (centerPx - ringPx) * centerness;
-  } else {
-    const ringR   = Math.max(110 * ps, 30);
-    const centerR = Math.max(maxCoinBase * sizeMul * 1.35 * ps, 100);
-    R = ringR + (centerR - ringR) * centerness;
-  }
-
-  if (distFromCenter > 30) {
-    const [tx, ty, tz] = getTargetPos(body);
-    const ddx = tx - body.wx, ddy = ty - body.wy, ddz = tz - body.wz;
-    const dlen = Math.hypot(ddx, ddy, ddz);
-    if (dlen > 10) {
-      const trailLen = Math.min(dlen * 1.6, 260);
-      const nx = ddx / dlen, ny = ddy / dlen, nz = ddz / dlen;
-      P(body.wx - nx * trailLen, body.wy - ny * trailLen, body.wz - nz * trailLen);
-      if (PZ >= 40) {
-        const ex = PX, ey = PY;
-        const trailCol = body.isSol ? '#14F195' : getEco(body.key).color;
-        const alpha = clamp(dlen / 220, 0, 1) * 0.6;
-        ctx.save();
-        const grad = ctx.createLinearGradient(px, py, ex, ey);
-        grad.addColorStop(0, trailCol);
-        grad.addColorStop(1, hexA(trailCol, 0));
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = Math.max(2, R * 0.32);
-        ctx.lineCap = 'round';
-        ctx.globalAlpha = alpha;
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(ex, ey);
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-  }
-
-  if (body.isSol) {
-    drawSolBody(body, px, py, pz, R, centerness, t, list);
-  } else {
-    drawEcoBody(body, getEco(body.key), px, py, pz, R, centerness, t, list);
-  }
-}
-
-function drawEcoBody(body, eco, px, py, pz, R, centerness, t, list) {
-  const hover = hoverId === 'eco-body-' + eco.key;
-  const act = centerness > 0.5;
-  const addPulse = clamp(1 - (RT - eco.lastCoinAddAt) / 0.7, 0, 1);
-  const Rs = R * (1 + addPulse * 0.12);
-
-  list.push({ z: pz, f: () => {
-       // Always-on color glow — fades slightly when ringed but never disappears
-    {
-      const a = 0.5 + clamp(centerness, 0, 1) * 0.5;
-      ctx.globalCompositeOperation = 'lighter';
-      const aura = ctx.createRadialGradient(px, py, Rs * 0.3, px, py, Rs * 2.8);
-      aura.addColorStop(0, hexA(eco.color, 0.55 * a));
-      aura.addColorStop(0.4, hexA(eco.color, 0.18 * a));
-      aura.addColorStop(1, hexA(eco.color, 0));
-      ctx.fillStyle = aura;
-      ctx.beginPath(); ctx.arc(px, py, Rs * 2.8, 0, TAU); ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
-    }
-
-    if (addPulse > 0.01) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.beginPath();
-      ctx.arc(px, py, Rs * 1.5, 0, TAU);
-      ctx.strokeStyle = hexA(eco.color, addPulse * 0.7);
-      ctx.lineWidth = 3 + addPulse * 4;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    drawBall(px, py, Rs, eco.color, eco.img, eco.symbol ? eco.symbol[0] : '?', '#fff');
-
-    if (hover) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(px, py, Rs * 1.3, 0, TAU);
-      ctx.strokeStyle = eco.color;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      ctx.lineDashOffset = -t * 20;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    if (centerness > 0.4) {
-      const a = clamp((centerness - 0.4) / 0.4, 0, 1);
-      ctx.globalAlpha = a;
-      const nameSize = clamp(Rs * (0.20 + 0.04 * centerness), 12, 26);
-      ctx.font = `900 ${nameSize}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = '#fff';
-      ctx.shadowColor = eco.color;
-      ctx.shadowBlur = 16 + centerness * 16;
-      ctx.fillText(eco.name.toUpperCase(), px, py + Rs + 44);
-      ctx.shadowBlur = 0;
-
-      const n = ALL.filter(c => c.ecoKey === eco.key).length;
-      ctx.font = `700 12px ui-monospace,"SF Mono",Menlo,monospace`;
-      ctx.fillStyle = hexA(eco.color, 0.92);
-      ctx.fillText(n === 0 ? 'NO COINS YET' : n + ' COINS', px, py + Rs + 68);
-
-      const gcY = py + Rs + 94;
-      const gcSize = clamp(nameSize * 0.5, 10, 13);
-      ctx.font = `800 ${gcSize}px ui-monospace,'SF Mono',Menlo,monospace`;
-      ctx.fillStyle = act ? eco.color : hexA(eco.color, 0.8);
-      ctx.shadowColor = eco.color;
-      ctx.shadowBlur = act ? 18 : 10;
-      ctx.fillText('◇ GENERAL CHAT', px, gcY);
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
-
-      hits.push({ id: 'core', x: px, y: gcY - gcSize * 0.4, r: 72, z: pz - 2 });
-    } else if (Rs > 8) {
-      ctx.font = `700 ${clamp(Rs * 0.4, 9, 13)}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = 'rgba(225,232,255,.85)';
-      ctx.shadowColor = '#000';
-      ctx.shadowBlur = 6;
-      ctx.fillText(eco.symbol, px, py + Rs + 14);
-      ctx.shadowBlur = 0;
-    }
-
-    hits.push({ id: 'eco-body-' + eco.key, x: px, y: py, r: Rs * 1.2, z: pz, bodyKey: eco.key });
-  }});
-
-}
-
-function drawOrbitalPlane(t) {
-  if (!outerR) return;
-  const R = outerR * 1.18;
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-
-  // Faint filled disc — the floor of the universe
-  ctx.beginPath();
-  let pen = false;
-  for (let k = 0; k <= 96; k++) {
-    const a = k / 96 * TAU;
-    P(R * Math.cos(a), 0, R * Math.sin(a));
-    if (PZ < 30) { pen = false; continue; }
-    if (pen) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); pen = true; }
-  }
-  ctx.closePath();
-  const discGrad = ctx.createRadialGradient(W / 2, cenY, 0, W / 2, cenY, Math.max(W, H) * 0.55);
-  discGrad.addColorStop(0,    'rgba(95, 120, 255, 0.045)');
-  discGrad.addColorStop(0.55, 'rgba(130, 90, 255, 0.026)');
-  discGrad.addColorStop(1,    'rgba(60, 90, 200, 0)');
-  ctx.fillStyle = discGrad;
-  ctx.fill();
-
-  // Concentric guide rings — reinforce the flatness with breathing pulses
-  for (let i = 1; i <= 14; i++) {
-    const rr = R * (i / 14);
-    if (rr < 40) continue;
-    ctx.beginPath();
-    let p2 = false;
-    for (let k = 0; k <= 72; k++) {
-      const a = k / 72 * TAU;
-      P(rr * Math.cos(a), 0, rr * Math.sin(a));
-      if (PZ < 30) { p2 = false; continue; }
-      if (p2) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); p2 = true; }
-    }
-    const alpha = 0.012 + Math.sin(t * 0.7 + i * 0.5) * 0.006;
-    ctx.strokeStyle = `rgba(150, 175, 255, ${alpha})`;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function drawEcoRing(t) {
-  if (!ECO_RING.radius) return;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,.07)';
-  ctx.lineWidth = 1.3;
-  ctx.setLineDash([4, 10]);
-  ctx.lineDashOffset = -t * 10;
-  ctx.beginPath();
-  let pen = false;
-  for (let k = 0; k <= 120; k++) {
-    const a = k / 120 * TAU;
-    P(ECO_RING.radius * Math.cos(a), ECO_RING.elevation, ECO_RING.radius * Math.sin(a));
-    if (PZ < 40) { pen = false; continue; }
-    if (pen) ctx.lineTo(PX, PY); else { ctx.moveTo(PX, PY); pen = true; }
-  }
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
-}
-
-/* ─── Open an eco-coin holder chat WITHOUT swapping the view back to Solana ─── */
-function openEcoChat(room, ecoKey) {
-  if (!room) return;
-
-  // If the coin's eco isn't the current center, swap to it first
-  if (ecoKey) {
-    const target = getBody(ecoKey);
-    const cur = BODIES.find(b => b.isCenter);
-    if (target && cur && target !== cur) {
-      swapCenterTo(ecoKey);        // closes sheet, animates eco → center
-    }
-  }
-
-  selId = room.id;
-  wantCenY = H * 0.25;
-  dock.classList.add('hide');
-  sheet.classList.add('open');
-  openChat(room.id, room.name, room.color, room.ca);
-}
-
-async function onEcoCoinClick(ecoKey, coin) {
-  const eco = getEco(ecoKey);
-  if (!eco || !coin) return;
-
-  const addr = String(coin.address || '').toLowerCase();
-  if (!addr) { showToast('This coin has no contract address', true); return; }
-
-  // Already has a holder chat? Open it instantly on the eco view.
-  const existing = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
-  if (existing) { openEcoChat(existing, ecoKey); return; }
-
-  if (coin._opening) return;
-  coin._opening = true;
-  showToast(`Opening ${coin.symbol || 'coin'} chat…`);
-
-  try {
-    const { data: inserted, error } = await sb.from('orbit_communities')
-      .insert({
-        name: coin.name || coin.symbol || 'Token',
-        tagline: coin.symbol || '',
-        ca: coin.address,
-        logo_url: coin.logo_url || '',
-        color: coin.color || eco.color,
-        emoji: `${ecoKey}|🪙`
-      })
-      .select()
-      .single();
-
-    if (error) {
-      // Race condition or real failure — try to recover via a full refresh
-      console.warn('[ORBITS] eco chat insert failed:', error.message);
-      await refreshCommunities();
-      const fallback = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
-      if (fallback) { openEcoChat(fallback, ecoKey); return; }
-      throw error;
-    }
-
-    if (inserted && inserted.id) {
-      // Hydrate locally so openEcoChat works IMMEDIATELY (no network round-trip)
-      const newRoom = HY[inserted.id] || hyd({
-        id: inserted.id,
-        name: inserted.name,
-        tag: inserted.tagline,
-        color: inserted.color,
-        emoji: inserted.emoji,
-        members: 1,
-        ca: inserted.ca,
-        logo_url: inserted.logo_url
-      });
-      if (!ALL.find(c => c.id === inserted.id)) ALL.push(newRoom);
-      byId[inserted.id] = newRoom;
-
-     openEcoChat(newRoom, ecoKey);                                // ← chat opens in ~100ms
-
-      refreshCommunities().catch(e =>
-        console.warn('[ORBITS] bg refresh failed:', e)
-      );
-    } else {
-      await refreshCommunities();
-      const room = ALL.find(c => c.ca && String(c.ca).toLowerCase() === addr);
-      if (room) openEcoChat(room, ecoKey);
-      else showToast('Chat created — refresh to see it', true);
-    }
-  } catch (e) {
-    console.error('[ORBITS] Create eco chat failed:', e);
-    showToast('Could not open chat: ' + (e.message || 'error'), true);
-  } finally {
-    coin._opening = false;
-  }
-}
-
-function showEcoBanner(eco) {
-  const b = $('ecoBanner');
-  if (!b) return;
-
-  const isSol = !eco;
-  const color = isSol ? '#14F195' : eco.color;
-
-  b.style.setProperty('--eco-color', color);
-  $('ecoIc').textContent   = isSol ? 'SOL' : eco.symbol;
-  $('ecoName').textContent = isSol ? 'Solana'
-                                   : ((CHAIN_CONFIG[eco.key]?.label) || eco.name);
-
-  const n = ALL.filter(c => (c.ecoKey || null) === (isSol ? null : eco.key)).length;
-  $('ecoCount').textContent = n + ' COIN' + (n === 1 ? '' : 'S');
-
-  const addBtn = $('ecoAddBtn'), closeBtn = $('ecoClose');
-  if (addBtn)   addBtn.style.display   = isSol ? 'none' : '';
-  if (closeBtn) closeBtn.style.display = isSol ? 'none' : '';
-
-  b.classList.add('show');
-}
-
-function hideEcoBanner() {
-  $('ecoBanner')?.classList.remove('show');
-}
-
-function refreshBanner() {
-  const generalOpen = sheet.classList.contains('open') && currentRoomId === GENERAL_ROOM;
-  if (generalOpen) { hideEcoBanner(); return; }
-  const c = BODIES.find(x => x.isCenter);
-  showEcoBanner(c && !c.isSol ? getEco(c.key) : null);
-}
-
-$('ecoClose').onclick = () => {
-  const current = BODIES.find(b => b.isCenter);
-  if (current && !current.isSol) swapCenterTo('sol');
-};
-
-/* ─── Add Coin Modal ─── */
-let addCoinEcoKey = null;
-const addCoinModal = $('addCoinModal');
-const addCoinInput = $('addCoinInput');
-const addCoinBtn = $('addCoinBtn');
-const addCoinTitle = $('addCoinTitle');
-const addCoinDesc = $('addCoinDesc');
-
-function openAddCoin(ecoKey) {
-  const eco = getEco(ecoKey);
-  if (!eco) return;
-  addCoinEcoKey = ecoKey;
-  addCoinTitle.textContent = `Add ${eco.name} Coin`;
-  addCoinTitle.style.color = eco.color;
-  addCoinDesc.textContent = `Only ${eco.name} contracts accepted (${eco.chainId}).`;
-  addCoinDesc.style.color = hexA(eco.color, 0.85);
-  addCoinInput.value = '';
-  addCoinInput.placeholder = ['eth', 'bnb', 'avax', 'rh'].includes(ecoKey) ? '0x…' : 'Contract address…';
-  addCoinModal.classList.add('open');
-  setTimeout(() => addCoinInput.focus(), 80);
-}
-
-function closeAddCoin() {
-  addCoinModal.classList.remove('open');
-  addCoinEcoKey = null;
-}
-
-$('addCoinCloseBtn').onclick = closeAddCoin;
-addCoinModal.onclick = (e) => { if (e.target === addCoinModal) closeAddCoin(); };
-
-$('ecoAddBtn').onclick = () => {
-  const current = BODIES.find(b => b.isCenter);
-  if (!current || current.isSol) return;
-  openAddCoin(current.key);
-};
-
-async function addCoinForEco(ecoKey, address) {
-  const eco = getEco(ecoKey);
-  if (!eco) return { error: 'Unknown ecosystem' };
-  const trimmed = address.trim();
-  if (trimmed.length < 10) return { error: 'Invalid address' };
-
-  const existing = ALL.find(c => c.ca && c.ca.toLowerCase() === trimmed.toLowerCase());
-  if (existing) return { error: 'Already added' };
-
-  addCoinBtn.disabled = true;
-  addCoinBtn.textContent = 'CHECKING…';
-  try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${trimmed}`);
-    if (!res.ok) throw new Error('Network error');
-    const json = await res.json();
-    const pairs = (json.pairs || []).filter(p => p.chainId === eco.chainId);
-    if (!pairs.length) return { error: `Not a ${eco.name} token — no pairs on ${eco.chainId}` };
-
-    pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
-    const pair = pairs[0];
-
-    const { error } = await sb.from('orbit_communities').insert({
-      name: pair.baseToken?.name || 'Unknown',
-      tagline: pair.baseToken?.symbol || 'TOKEN',
-      ca: pair.baseToken?.address || trimmed,
-      logo_url: pair.info?.imageUrl || '',
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      emoji: `${ecoKey}|🪙`
-    });
-    if (error) throw error;
-
-    // Match the Solana path: plain insert + full re-sync
-    await syncAll();
-
-    const newAddr = (pair.baseToken?.address || trimmed).toLowerCase();
-    const newC = ALL.find(c => c.ca && c.ca.toLowerCase() === newAddr);
-    return { coin: newC };
-  } catch (e) {
-    return { error: e.message || 'Failed to validate' };
-  } finally {
-    addCoinBtn.disabled = false;
-    addCoinBtn.textContent = 'Add Coin';
-  }
-}
-
-addCoinBtn.onclick = async () => {
-  if (!addCoinEcoKey) return;
-  const address = addCoinInput.value.trim();
-  if (!address) { showToast('Enter an address', true); return; }
-
-  const result = await addCoinForEco(addCoinEcoKey, address);
-  if (result.error) {
-    showToast(result.error, true);
-    return;
-  }
-
-  const eco = getEco(addCoinEcoKey);
-
-  if (!result.coin) {
-    // INSERT succeeded, but the follow-up SELECT didn't return the row → RLS
-    showToast('Saved, but not readable — check SELECT RLS on orbit_communities', true);
-    closeAddCoin();
-    return;
-  }
-
-  showToast(`${result.coin.tag || result.coin.name} added to ${eco.name} ✓`);
-  triggerCoinAddFX(eco);
-  showEcoBanner(eco);
-  closeAddCoin();
-
-  layout();
-  buildDock();
-  want.dist = Math.max(want.dist, defDist());  // ensure new coin fits on screen
-  refreshAllStats().catch(() => {});
-};
-
-addCoinInput.onkeydown = e => { if (e.key === 'Enter') addCoinBtn.click(); };
-
-/* ═══════════════════════════════════════════════════════════════
-   7. ORBIT 3D ENGINE
-   ═══════════════════════════════════════════════════════════════ */
-const COLORS = ['#ff7a3d', '#ff4d8d', '#b45cff', '#3aa0ff', '#2fd3c4', '#3ddc84', '#ffd23f', '#ff5b5b'];
-const cv = $('c');
-const ctx = cv.getContext('2d');
-
-let W = 0, H = 0, DPR = 1, F = 400;
-const cam = { yaw: 0.6, pitch: 0.5, dist: 3000, tx: 0, ty: 0, tz: 0 };
-const want = { dist: 1500 };
-let cenY = 0, wantCenY = 0;
-let RT = performance.now() / 1000;
-let T = 0;
-let PX = 0, PY = 0, PZ = 1, PS = 1;
-let paused = false, spin = true, lastInput = 0;
-let selId = null, hoverId = null;
-let dragging = false, down = null, pinch0 = 0;
-const ptrs = new Map();
-const hits = [];
-const waves = [];
-const parts = [];
-
-const caCam = { cy: 1, sy: 0, cp: 1, sp: 0 };
-const SUN_SCREEN = { x: 0, y: 0, z: 0, r: 0 };
-
-function P(x, y, z, noT) {
-  if (!noT) { x -= cam.tx; y -= cam.ty; z -= cam.tz; }
-  const x1 = x * caCam.cy - z * caCam.sy;
-  const z1 = x * caCam.sy + z * caCam.cy;
-  const y2 = y * caCam.cp + z1 * caCam.sp;
-  const z2 = -y * caCam.sp + z1 * caCam.cp + cam.dist;
-  PS = F / z2;
-  PX = W / 2 + x1 * PS;
-  PY = cenY - y2 * PS;
-  PZ = z2;
-}
-
-const STARS = [];
-for (let i = 0; i < 640; i++) {
-  const u = Math.random() * 2 - 1, a = Math.random() * TAU, r = Math.sqrt(1 - u * u);
-  STARS.push({
-    x: r * Math.cos(a), y: u, z: r * Math.sin(a),
-    s: Math.random() * 1.6 + 0.3, p: Math.random() * 6.28,
-    c: ['#ffffff', '#cfe0ff', '#ffe9c4', '#ffd0e8'][i % 4]
-  });
-}
-
-const DUST = [];
-for (let i = 0; i < 220; i++) {
-  DUST.push({
-    x: (Math.random() - 0.5) * 4200, y: (Math.random() - 0.5) * 2200, z: (Math.random() - 0.5) * 4200,
-    s: Math.random() * 1.4 + 0.4, p: Math.random() * TAU
-  });
-}
-
-/* ─── SHOOTING STARS ─── */
-const shootingStars = [];
-function spawnShootingStar(big = false) {
-  const fromLeft = Math.random() > 0.5;
-  const fromX = fromLeft ? -80 : W + 80;
-  const fromY = Math.random() * H * 0.55;
-  const angle = fromLeft
-    ? Math.PI * (0.15 + Math.random() * 0.2)
-    : Math.PI * (0.65 + Math.random() * 0.2);
-  const speed = big ? 1000 : 500 + Math.random() * 400;
-  shootingStars.push({
-    x: fromX, y: fromY,
-    vx: Math.cos(angle) * speed * (fromLeft ? 1 : -1),
-    vy: Math.sin(angle) * speed,
-    life: big ? 2.2 : 1.1 + Math.random() * 0.6,
-    age: 0,
-    color: big ? '#ffd27a' : (Math.random() > 0.4 ? '#ffffff' : '#b8d4ff'),
-    size: big ? 3.5 : 2
-  });
-}
-setInterval(() => { if (Math.random() < 0.55) spawnShootingStar(false); }, 7000);
-setInterval(() => {
-  if (Math.random() < 0.35) {
-    for (let i = 0; i < 4; i++) setTimeout(() => spawnShootingStar(true), i * 180);
-  }
-}, 24000);
-
-function drawShootingStars(dt) {
-  ctx.globalCompositeOperation = 'lighter';
-  for (let i = shootingStars.length - 1; i >= 0; i--) {
-    const s = shootingStars[i];
-    s.age += dt;
-    if (s.age > s.life || s.x < -200 || s.x > W + 200 || s.y > H + 200 || s.y < -200) {
-      shootingStars.splice(i, 1); continue;
-    }
-    s.x += s.vx * dt; s.y += s.vy * dt;
-    const a = Math.sin((1 - s.age / s.life) * Math.PI);
-    const tx = s.x - s.vx * 0.08, ty = s.y - s.vy * 0.08;
-    const grad = ctx.createLinearGradient(s.x, s.y, tx, ty);
-    grad.addColorStop(0, s.color);
-    grad.addColorStop(1, s.color + '00');
-    ctx.strokeStyle = grad;
-    ctx.globalAlpha = a;
-    ctx.lineWidth = s.size;
-    ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(tx, ty); ctx.stroke();
-    ctx.fillStyle = s.color;
-    ctx.beginPath(); ctx.arc(s.x, s.y, s.size * 0.9, 0, TAU); ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'source-over';
-}
-
-let neb = null;
-function buildNebula() {
-  const w = Math.ceil(W * 1.3 * 0.5), h = Math.ceil(H * 1.3 * 0.5);
-  neb = document.createElement('canvas');
-  neb.width = w; neb.height = h;
-  const x = neb.getContext('2d');
-  const blobs = [
-    [0.22, 0.28, 0.55, '#5b2a9e', 0.30],
-    [0.78, 0.66, 0.60, '#1b5ea8', 0.26],
-    [0.50, 0.50, 0.40, '#a8431b', 0.12],
-    [0.14, 0.82, 0.45, '#1b8a6b', 0.16],
-    [0.88, 0.18, 0.50, '#8e2a6e', 0.18]
-  ];
-  for (const b of blobs) {
-    const R = Math.max(w, h) * b[2];
-    const g = x.createRadialGradient(b[0] * w, b[1] * h, 0, b[0] * w, b[1] * h, R);
-    g.addColorStop(0, b[3]); g.addColorStop(1, 'rgba(0,0,0,0)');
-    x.globalAlpha = b[4]; x.fillStyle = g;
-    x.fillRect(0, 0, w, h);
-  }
-}
-
-const HY = {};
-let ALL = [], byId = {};
-const LANES = [];
-let BELTS = [];
-let outerR = 340, sizeMul = 1, maxCoinBase = 0;
-
-function hyd(d) {
-  if (HY[d.id]) return HY[d.id];
-  const c = Object.assign({}, d);
-
-  // Parse ecoKey from emoji prefix "ecoKey|emoji" — eco coins get "eth|🪙", Solana coins get "🪙"
-  const rawEmoji = d.emoji || '';
-  const pipeIdx = rawEmoji.indexOf('|');
-  if (pipeIdx > 0) {
-    c.ecoKey = rawEmoji.slice(0, pipeIdx);
-    c.emoji = rawEmoji.slice(pipeIdx + 1);
-  } else {
-    c.ecoKey = null; // Solana
-    c.emoji = rawEmoji;
-  }
-
-  c.src = d.logo_url || 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${d.color || '#ff7a3d'}"/><text x="50" y="50" dy=".35em" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="40" fill="#fff">${esc(c.emoji || initials(d.name))}</text></svg>`
-  );
-  c.img = new Image();
-  c.img.src = c.src;
-  c.born = RT + 0.3;
-  c.pos = [0, 0, 0];
-  c.pj = { x: 0, y: 0, z: 1, s: 1 };
-  c.off = undefined;
-  c.lane = null;
-  HY[d.id] = c;
-  return c;
-}
-
-async function syncAll() {
-  const { data: rooms, error } = await sb.from('orbit_communities').select('*').neq('id', GENERAL_ROOM);
-  if (error) throw error;
-
-  const { data: accessRows } = await sb.from('room_access').select('room_id').eq('status', 'granted');
-  const countMap = {};
-  (accessRows || []).forEach(r => { countMap[r.room_id] = (countMap[r.room_id] || 0) + 1; });
-
-  const currentIds = new Set((rooms || []).map(r => r.id));
-  Object.keys(HY).forEach(k => { if (!currentIds.has(k)) delete HY[k]; });
-  ALL = (rooms || []).map(r => hyd({
-    id: r.id, name: r.name, tag: r.tagline, color: r.color, emoji: r.emoji,
-    members: countMap[r.id] || 0,
-    ca: r.ca, logo_url: r.logo_url
-  }));
-  byId = {};
-  ALL.forEach(c => byId[c.id] = c);
-}
-
-let statsRefreshTimer = null;
-async function refreshAllStats() {
-  await Promise.all(ALL.map(async c => {
-    if (!c.ca) return;
-    try {
-      const s = await getTokenStats(c.ca, false, c.ecoKey);
-      if (s) {
-        c.stats    = s;
-        c.mcap     = s.mcap || 0;
-        c.change24 = s.change || 0;
-        c.priceVal = s.price  || 0;
-      }
-    } catch (e) { /* silent */ }
-  }));
-  layout();
-}
-
-function laneDef(i) {
-  // FLAT COPLANAR ORBITS — every lane lies exactly on the XZ plane (y = 0).
-  // Concentric circles, no inclination, no node twist, no eccentric wiggle.
-  const r = 400 + i * 170;                 // a touch more breathing room
-  return {
-    idx: i,
-    r,
-    e: 0,                                  // circular
-    b: 1,
-    w: 0.34 * Math.pow(250 / r, 1.5),      // Kepler-ish speed, inner lanes faster
-    dir: i % 2 ? -1 : 1,                   // adjacent lanes counter-rotate
-    members: []
-  };
-}
-function lanePt(L, E, o) {
-  o[0] = L.r * Math.cos(E);
-  o[1] = 0;                                // ← all orbits lie on the plane
-  o[2] = L.r * Math.sin(E);
-  return o;
-}
-function kep(M, e, it) {
-  let E = M;
-  for (let i = 0; i < (it || 4); i++) E = M + e * Math.sin(E);
-  return E;
-}
-function angd(a, b) { return ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
-function g3() { return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; }
-
-function mkBelt(r, w, th, n, dir) {
-  const B = {
-    r, n, dir, w: 0.34 * Math.pow(250 / r, 1.5) * 1.4,
-    cx: new Float32Array(n), sx: new Float32Array(n), rr: new Float32Array(n), yy: new Float32Array(n),
-    bx: new Float32Array(n), by: new Float32Array(n), bz: new Float32Array(n),
-    ba: new Float32Array(n),
-    nv:   new Uint8Array(n),
-    sz:   new Float32Array(n),
-    rot:  new Float32Array(n),
-    spin: new Float32Array(n),
-    pvx:  new Float32Array(n * 5),
-    pvy:  new Float32Array(n * 5)
-  };
-  for (let i = 0; i < n; i++) {
-    const a = Math.random() * TAU;
-    B.cx[i] = Math.cos(a); B.sx[i] = Math.sin(a);
-    B.rr[i] = r + g3() * w; B.yy[i] = g3() * th;
-
-    const nv = 3 + Math.floor(Math.random() * 4);   // 3–6 sided rocks
-    B.nv[i]   = nv;
-    B.sz[i]   = 0.4 + Math.random() * 1.4;          // bigger variety
-    B.rot[i]  = Math.random() * TAU;
-    B.spin[i] = (Math.random() - 0.5) * 1.8;
-    for (let k = 0; k < nv; k++) {
-      const va = (k / nv) * TAU + (Math.random() - 0.5) * 0.6;
-      const vr = 0.55 + Math.random() * 0.8;        // jagged radius
-      B.pvx[i * 5 + k] = Math.cos(va) * vr;
-      B.pvy[i * 5 + k] = Math.sin(va) * vr;
-    }
-  }
-    return B;
-}
-function sizeFromMcap(mcap) {
-  if (!mcap || mcap <= 0) return 30;                 // no market data yet → clean baseline
-  const logM = Math.log10(Math.max(mcap, 1e4));      // floor at $10K
-  const t = clamp((logM - 4) / 6, 0, 1);             // $10K → 0 … $10B → 1
-  return Math.round(30 + Math.pow(t, 1.3) * 80);     // pixel radius: $10K→30, $10B→110
-}
-function layout() {
-  LANES.length = 0;
-  const ecoKey = currentEcoKey();
-  const visible = ALL.filter(c => (c.ecoKey || null) === ecoKey);
-
-  let i = 0, lane = 0;
-  while (i < visible.length) {
-    const cap = 1 + Math.floor(lane / 4);
-    const L = laneDef(lane);
-    for (let k = 0; k < cap && i < visible.length; k++) L.members.push(visible[i++]);
-    LANES.push(L);
-    lane++;
-  }
-  for (const L of LANES) {
-    L.members.forEach((c, k) => {
-      c.lane = L;
-      c.toff = k / L.members.length * TAU + L.idx * 1.7;
-      if (c.off === undefined) c.off = c.toff;
-      // Size driven by market cap (log scale) — small coins stay chunky, big caps clearly dominate
-      c.baseSize = sizeFromMcap(c.mcap);
-    });
-  }
-
-  // outerR = widest lane across ALL ecos, so the eco ring stays stable when you swap
-  const counts = { __sol: 0, eth: 0, bnb: 0, avax: 0, rh: 0 };
-  for (const c of ALL) {
-    const k = c.ecoKey || '__sol';
-    if (counts[k] !== undefined) counts[k]++;
-  }
-  let maxR = 400;
-  for (const k in counts) {
-    const n = counts[k];
-    if (!n) continue;
-    let idx = 0, ln = 0, maxLane = 0;
-    while (idx < n) {
-      const cap = 1 + Math.floor(ln / 4);
-      for (let j = 0; j < cap && idx < n; j++) idx++;
-      maxLane = ln;
-      ln++;
-    }
-    const r = (400 + maxLane * 170) * 1.12;
-    if (r > maxR) maxR = r;
-  }
-  outerR = maxR;
-
-  // Note: want.dist is intentionally NOT touched here — user's manual zoom
-  // is preserved. Auto-fit happens only at boot and when new content is added.
-
-  layoutEcosystems();
-  sizeMul = clamp(Math.pow(outerR / 760, 0.4), 1, 1.8);
-
-  BELTS = [];
-  // Flat Saturn-style razor-thin wide halo on the same plane as everything else
-  BELTS.push(mkBelt(ECO_RING.radius, 90, 3.5, 1000, -1));
-}
-
-const defDist = () => clamp((outerR + 110) * 2.0, 1250, 7500);
-
-function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = innerWidth; H = innerHeight;
-  cv.width = W * DPR; cv.height = H * DPR;
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  F = Math.min(W, H) * 0.95;
-  if (W > H) F = Math.min(F, H * 0.95);
-  const isEcoSel = selId && ECOSYSTEMS.some(e => e.key === selId);
-  wantCenY = (selId && !isEcoSel) ? H * 0.25 : H * 0.5;
-  if (!cenY) cenY = wantCenY;
-  buildNebula();
-}
-addEventListener('resize', resize);
-
-function burst(c) {
-  waves.push({ t0: RT, color: c.color });
-  const q = c.pos;
-  for (let i = 0; i < 46; i++) {
-    const a = Math.random() * TAU, u = Math.random() * 2 - 1;
-    const rr = Math.sqrt(1 - u * u), sp = 60 + Math.random() * 170;
-    parts.push({
-      x: q[0], y: q[1], z: q[2],
-      vx: rr * Math.cos(a) * sp, vy: u * sp, vz: rr * Math.sin(a) * sp,
-      life: 0.8 + Math.random() * 0.9, age: 0,
-      col: i % 3 ? c.color : '#ffffff'
-    });
-  }
-}
-function easeOutBack(x) { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); }
-
-function drawStarsBg(t) {
-  const scx = W / 2, scy = cenY;
-  for (const s of STARS) {
-    P(s.x * 9000, s.y * 9000, s.z * 9000, true);
-    if (PZ < 200 || PX < -60 || PX > W + 60 || PY < -60 || PY > H + 60) continue;
-    const baseAlpha = 0.4 + 0.4 * Math.sin(t * 1.4 + s.p);
-    if (warp > 0.02) {
-      const dx = PX - scx, dy = PY - scy;
-      const len = Math.hypot(dx, dy) || 1;
-      const stretch = warp * (60 + s.s * 30) * Math.min(1, len / 180);
-      const ax = PX - dx / len * stretch;
-      const ay = PY - dy / len * stretch;
-      ctx.globalAlpha = Math.min(1, baseAlpha + warp * 0.5);
-      ctx.strokeStyle = s.c;
-      ctx.lineWidth = Math.max(0.9, s.s * 0.9);
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(PX, PY);
-      ctx.stroke();
-    } else {
-      ctx.globalAlpha = baseAlpha;
-      ctx.fillStyle = s.c;
-      ctx.fillRect(PX, PY, s.s, s.s);
-    }
-  }
-  for (const d of DUST) {
-    P(d.x, d.y, d.z, true);
-    if (PZ < 100 || PX < 0 || PX > W || PY < 0 || PY > H) continue;
-    ctx.globalAlpha = 0.15 + 0.15 * Math.sin(t * 0.6 + d.p);
-    ctx.fillStyle = '#aab8e8';
-    ctx.fillRect(PX, PY, d.s, d.s);
-  }
-  ctx.globalAlpha = 1;
-}
-
-function projBelts() {
-  for (const B of BELTS) {
-    const ang = B.dir * T * B.w, cr = Math.cos(ang), sr = Math.sin(ang);
-    for (let i = 0; i < B.n; i++) {
-      const c0 = B.cx[i], s0 = B.sx[i], r = B.rr[i];
-      const wx = r * (c0 * cr - s0 * sr);
-      const wz = r * (s0 * cr + c0 * sr);
-      P(wx, B.yy[i], wz);
-      B.bx[i] = PX; B.by[i] = PY; B.bz[i] = PZ;
-      B.ba[i] = Math.atan2(wz, wx);
-    }
-  }
-}
-function drawBelts(front, zs) {
-  for (const B of BELTS) {
-    ctx.globalAlpha = 0.92;
-    for (let i = 0; i < B.n; i++) {
-      const z = B.bz[i];
-      if (z < 40) continue;
-      if ((z <= zs) !== front) continue;
-
-      const s   = clamp(F / z * 3, 1.0, 4.2) * B.sz[i];
-      const ang = B.rot[i] + T * B.spin[i];
-      const ca  = Math.cos(ang), sa = Math.sin(ang);
-      const nv  = B.nv[i];
-      const ox  = B.bx[i], oy = B.by[i];
-
-      ctx.fillStyle = ringColorAt(B.ba[i]);
-      ctx.beginPath();
-      for (let k = 0; k < nv; k++) {
-        const px = B.pvx[i * 5 + k], py = B.pvy[i * 5 + k];
-        const x = ox + (px * ca - py * sa) * s;
-        const y = oy + (px * sa + py * ca) * s;
-        if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fill();
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-const LP = [0, 0, 0];
-function drawRings() {
-  ctx.lineWidth = 1.2;
-  for (const L of LANES) {
-    let col = 'rgba(170,185,255,0.13)', al = 1, isHover = false;
-    for (const c of L.members) {
-      if (selId === c.id) { col = c.color; al = 0.9; isHover = true; break; }
-      if (hoverId === c.id) { col = c.color; al = 0.6; isHover = true; }
-    }
-    ctx.strokeStyle = col;
-    ctx.globalAlpha = al;
-    if (!isHover) {
-      ctx.setLineDash([2, 8]); ctx.lineDashOffset = -RT * 15;
-    } else {
-      ctx.setLineDash([8, 8]); ctx.lineDashOffset = -RT * 30;
-      ctx.shadowColor = col; ctx.shadowBlur = 15;
-    }
-    ctx.beginPath();
-    let pen = false;
-    for (let k = 0; k <= 96; k++) {
-      lanePt(L, k / 96 * TAU, LP);
-      P(LP[0], LP[1], LP[2]);
-      if (PZ < 30) { pen = false; continue; }
-      if (pen) ctx.lineTo(PX, PY);
-      else { ctx.moveTo(PX, PY); pen = true; }
-    }
-    ctx.stroke();
-    ctx.shadowBlur = 0; ctx.setLineDash([]);
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawWaves() {
-  ctx.globalCompositeOperation = 'lighter';
-  const lim = outerR * 1.25 + 200;
-  for (let i = waves.length - 1; i >= 0; i--) {
-    const w = waves[i], R = (RT - w.t0) * 620;
-    if (R > lim) { waves.splice(i, 1); continue; }
-    ctx.strokeStyle = w.color;
-    ctx.globalAlpha = Math.max(0, 0.55 * (1 - R / lim));
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    let pen = false;
-    for (let k = 0; k <= 72; k++) {
-      const a = k / 72 * TAU;
-      P(R * Math.cos(a), 0, R * Math.sin(a));
-      if (PZ < 30) { pen = false; continue; }
-      if (pen) ctx.lineTo(PX, PY);
-      else { ctx.moveTo(PX, PY); pen = true; }
-    }
-    ctx.stroke();
-  }
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = 1;
-}
-
-function drawMoon(m) {
-  const r = m.r;
-  const g = ctx.createRadialGradient(m.x - r * 0.3, m.y - r * 0.3, r * 0.1, m.x, m.y, r);
-  g.addColorStop(0, '#f4f6ff'); g.addColorStop(1, '#6a7096');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, TAU); ctx.fill();
-}
-
-const TX = new Float32Array(40), TY = new Float32Array(40);
-function drawPlanet(c, sp, alphaMul = 1) {
-  const prog = clamp((RT - c.born) / 0.9, 0, 1);
-  if (prog <= 0) return;
-  const sc = easeOutBack(prog);
-  const p = c.pj, L = c.lane;
-  // Coin pixel radius is LITERALLY c.baseSize from sizeFromMcap.
-  // No F, no defDist, no sizeMul, no PS, no warp factor — locked.
-  const sz = c.baseSize;
-  const r = Math.max(sz, 11) * sc;
-  const act = selId === c.id, hov = hoverId === c.id;
-
-  ctx.globalAlpha = alphaMul;
-
-  const chg = (typeof c.change24 === 'number') ? c.change24 : 0;
-  const isUp = chg >= 0;
-  const trendColor = isUp ? '#22c55e' : '#ef4444';
-  const trendRGB = isUp ? [34,197,94] : [239,68,68];
-  const trendA = (a) => `rgba(${trendRGB[0]},${trendRGB[1]},${trendRGB[2]},${a})`;
-
-  let nt = 0;
-  TX[0] = p.x; TY[0] = p.y;
-  for (let k = 1; k <= 35; k++) {
-    lanePt(L, kep(c.M - L.dir * k * 0.05, L.e), LP);
-    P(LP[0], LP[1], LP[2]);
-    if (PZ < 30) break;
-    TX[k] = PX; TY[k] = PY; nt = k;
-  }
-  if (nt > 1) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round'; ctx.strokeStyle = trendColor;
-    for (let g = 0; g < 7; g++) {
-      const a = g * 5, b = Math.min(nt, (g + 1) * 5);
-      if (a >= nt) break;
-      ctx.globalAlpha = (act ? 0.9 : 0.55) * (1 - g / 7.5) * sc * alphaMul;
-      ctx.lineWidth = Math.max(1.5, r * 0.6 * (1 - g / 7));
-      ctx.beginPath();
-      ctx.moveTo(TX[a], TY[a]);
-      for (let k = a + 1; k <= b; k++) ctx.lineTo(TX[k], TY[k]);
-      ctx.stroke();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = alphaMul;
-  }
-
-  const atmosR = r * (1.95 + Math.sin(RT * 1.4 + c.born) * 0.14);
-  ctx.globalCompositeOperation = 'lighter';
-  let ag = ctx.createRadialGradient(p.x, p.y, r * 0.85, p.x, p.y, atmosR);
-  ag.addColorStop(0, trendA(0.42));
-  ag.addColorStop(0.42, trendA(0.20));
-  ag.addColorStop(0.75, trendA(0.08));
-  ag.addColorStop(1, trendA(0));
-  ctx.fillStyle = ag;
-  ctx.beginPath(); ctx.arc(p.x, p.y, atmosR, 0, TAU); ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
-
-
-  const nm = clamp(Math.floor((c.members || 0) / 1000), 0, 3);
-  const moons = [];
-  if (r > 9) {
-    for (let k = 0; k < nm; k++) {
-      const am = T * (1.1 + 0.5 * k) + k * 2.1;
-      const orbitPx = r * (1.9 + 0.8 * k);            // pixel orbit, scales with coin's fixed r
-      const mx = p.x + orbitPx * Math.cos(am);
-      const my = p.y + orbitPx * 0.18 * Math.sin(am + k);
-      const mz = p.z - orbitPx * Math.sin(am);        // z-offset for behind/front sorting
-      moons.push({ x: mx, y: my, z: mz, r: Math.max(1.8, r * 0.18) * sc });
-    }
-  }
-  for (const m of moons) if (m.z > p.z) drawMoon(m);
-
-  if (c.typingPulse && RT < c.typingPulse) {
-    const kk = clamp((c.typingPulse - RT) / 1.4, 0, 1);
-    ctx.save();
-    ctx.strokeStyle = c.color;
-    ctx.globalAlpha = kk * alphaMul;
-    ctx.lineWidth = 2.5 + (1 - kk) * 3;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, r * (1.25 + (1 - kk) * 1.4), 0, TAU);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  let lx = sp.x - p.x, ly = sp.y - p.y;
-  const Ln = Math.hypot(lx, ly) || 1;
-  lx /= Ln; ly /= Ln;
-
-  ctx.globalCompositeOperation = 'lighter';
-  let g = ctx.createRadialGradient(p.x, p.y, r * 0.8, p.x, p.y, r * 1.35);
-  g.addColorStop(0, c.color + '40'); g.addColorStop(1, c.color + '00');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.35, 0, TAU); ctx.fill();
-
-  g = ctx.createRadialGradient(p.x, p.y, r * 0.85, p.x, p.y, r * 1.8);
-  g.addColorStop(0, c.color + '55'); g.addColorStop(1, c.color + '00');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.8, 0, TAU); ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
-
-  ctx.save();
-  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.clip();
-  if (c.img.complete && c.img.naturalWidth > 0) {
-    ctx.drawImage(c.img, p.x - r, p.y - r, r * 2, r * 2);
-  } else {
-    ctx.fillStyle = c.color;
-    ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-    ctx.font = `bold ${r}px system-ui`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(initials(c.name), p.x, p.y);
-  }
-  g = ctx.createLinearGradient(p.x + lx * r, p.y + ly * r, p.x - lx * r, p.y - ly * r);
-  g.addColorStop(0, 'rgba(0,0,12,0)');
-  g.addColorStop(0.45, 'rgba(0,0,12,.18)');
-  g.addColorStop(1, 'rgba(0,0,12,.88)');
-  ctx.fillStyle = g;
-  ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-  g = ctx.createRadialGradient(p.x + lx * r * 0.45, p.y + ly * r * 0.45, 0, p.x + lx * r * 0.45, p.y + ly * r * 0.45, r * 0.6);
-  g.addColorStop(0, 'rgba(255,255,255,.35)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-  ctx.restore();
-
-  ctx.lineWidth = 1.8 + (act ? 0.9 : 0);
-  ctx.strokeStyle = trendColor;
-  ctx.globalAlpha = (act ? 1 : 0.85) * alphaMul;
-  ctx.shadowColor = trendColor;
-  ctx.shadowBlur = act ? 12 : 6;
-  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.stroke();
-  ctx.shadowBlur = 0;
-  ctx.globalAlpha = alphaMul;
-
-  for (const m of moons) if (m.z <= p.z) drawMoon(m);
-
-  if (prog < 1) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = (1 - prog) * 0.8 * alphaMul;
-    ctx.fillStyle = c.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.5, 0, TAU); ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = alphaMul;
-  }
-
-  if (act || hov) {
-    ctx.save();
-    ctx.setLineDash([6, 6]); ctx.lineDashOffset = -RT * 20;
-    ctx.strokeStyle = act ? '#fff' : trendColor; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.45, 0, TAU); ctx.stroke();
-    ctx.restore();
-  }
-
-  if (ALL.length <= 9 || act || hov || r > 17) {
-    const nameY = p.y + r + (act ? 22 : 18);
-    ctx.font = `700 ${clamp(r * 0.42, 11, 16)}px system-ui`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = act || hov ? '#fff' : 'rgba(225,232,255,.9)';
-    ctx.shadowColor = '#000'; ctx.shadowBlur = 8;
-    ctx.fillText(c.name, p.x, nameY);
-    ctx.shadowBlur = 0;
-
-    if (typeof c.change24 === 'number') {
-      const chgText = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
-      ctx.font = `800 ${clamp(r * 0.30, 9, 12)}px ui-monospace,'SF Mono',Menlo,monospace`;
-      ctx.fillStyle = trendColor;
-      ctx.shadowColor = trendColor;
-      ctx.shadowBlur = 8;
-      ctx.fillText(chgText, p.x, nameY + 14);
-      ctx.shadowBlur = 0;
-    }
-  }
-
-  hits.push({ id: c.id, x: p.x, y: p.y, r: r * 1.15, z: p.z });
-}
-
-function drawFX(dt) {
-  ctx.globalCompositeOperation = 'lighter';
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const q = parts[i];
-    q.age += dt;
-    if (q.age > q.life) { parts.splice(i, 1); continue; }
-    q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
-    q.vx *= 0.985; q.vy *= 0.985; q.vz *= 0.985;
-    P(q.x, q.y, q.z);
-    if (PZ < 40) continue;
-    ctx.globalAlpha = 1 - q.age / q.life;
-    ctx.fillStyle = q.col;
-    const s = Math.max(1.6, 8 * PS);
-    ctx.fillRect(PX - s / 2, PY - s / 2, s, s);
-  }
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = 1;
-}
-
-let last = performance.now();
-function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
-  last = now;
-  RT = now / 1000;
-  if (!paused) T += dt;
-
-  warp = Math.max(0, warp - dt * 1.8);
-  shakeAmount = Math.max(0, shakeAmount - dt * 3.2);
-  coloredFlash = Math.max(0, coloredFlash - dt * 2.2);
-  ringRotation += dt * 0.02;
-  refreshRingPalette();
-
-  caCam.cy = Math.cos(cam.yaw); caCam.sy = Math.sin(cam.yaw);
-  caCam.cp = Math.cos(cam.pitch); caCam.sp = Math.sin(cam.pitch);
-
-  const bodyK = 1 - Math.exp(-dt * 3.2);
-  for (const body of BODIES) {
-    const [tx, ty, tz] = getTargetPos(body);
-    body.wx += (tx - body.wx) * bodyK;
-    body.wy += (ty - body.wy) * bodyK;
-    body.wz += (tz - body.wz) * bodyK;
-  }
-
-  for (const c of ALL) {
-    const L = c.lane;
-    if (!L) continue;
-    c.off += angd(c.off, c.toff) * Math.min(1, dt * 2.5);
-    c.M = c.off + L.dir * T * L.w;
-    lanePt(L, kep(c.M, L.e), c.pos);
-    if (c.pend && RT >= c.born) { c.pend = false; burst(c); }
-  }
-
-  // Compute biggest coin now, before SUN_SCREEN.r is used this frame
-  maxCoinBase = 0;
-  for (const c of ALL) {
-    if (c.baseSize && c.baseSize > maxCoinBase) maxCoinBase = c.baseSize;
-  }
-
-  const ecoCenter = BODIES.find(b => !b.isSol && b.isCenter);
-
-  let tgt = [0, 0, 0];
-  if (selId && selId !== 'core' && !ecoCenter && byId[selId]) {
-    tgt = byId[selId].pos;
-  }
-
-  const k = 1 - Math.exp(-dt * 5);
-  cam.tx += (tgt[0] - cam.tx) * k;
-  cam.ty += (tgt[1] - cam.ty) * k;
-  cam.tz += (tgt[2] - cam.tz) * k;
-  cam.dist += (want.dist - cam.dist) * k;
-  cenY += (wantCenY - cenY) * k;
-
-  if (spin && !dragging && now - lastInput > 2500 && !ecoCenter) cam.yaw += dt * 0.1;
-
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  ctx.clearRect(0, 0, W, H);
-
-  if (shakeAmount > 0.01) {
-    ctx.fillStyle = '#03040a';
-    ctx.fillRect(-60, -60, W + 120, H + 120);
-    const sx = (Math.random() - 0.5) * shakeAmount * 14;
-    const sy = (Math.random() - 0.5) * shakeAmount * 14;
-    ctx.translate(sx, sy);
-  }
-
-  hits.length = 0;
-
-  if (neb) {
-    ctx.globalAlpha = 0.9;
-    ctx.drawImage(neb, -W * 0.15 + Math.sin(cam.yaw) * 28, -H * 0.15 + cam.pitch * 28, W * 1.3, H * 1.3);
-    ctx.globalAlpha = 1;
-  }
-
-  {
-    const cdr = Math.max(W, H) * 0.58;
-    const centerDark = ctx.createRadialGradient(W / 2, cenY, 0, W / 2, cenY, cdr);
-    centerDark.addColorStop(0,   'rgba(2,3,9,0.78)');
-    centerDark.addColorStop(0.35,'rgba(2,3,9,0.42)');
-    centerDark.addColorStop(0.7, 'rgba(2,3,9,0.14)');
-    centerDark.addColorStop(1,   'rgba(2,3,9,0)');
-    ctx.fillStyle = centerDark;
-    ctx.fillRect(0, 0, W, H);
-  }
-
-  const savedF = F;
-  F = F * (1 + warp * 0.09);
-
-  drawStarsBg(now / 1000);
-  drawShootingStars(dt);
-  drawOrbitalPlane(now / 1000);
-
-  P(0, 0, 0);
-  const sp = { x: PX, y: PY, z: PZ, s: PS };
-  SUN_SCREEN.x = PX; SUN_SCREEN.y = PY; SUN_SCREEN.z = PZ;
-  // Fade radius matches the drawn Sol planet (fixed 100 px) so the two line up
-  SUN_SCREEN.r = 100;
-
-  const list = [];
-
-  const solBody = BODIES.find(b => b.isSol);
-  {
-    const ecoKey = currentEcoKey();
-    projBelts();
-    drawBelts(true, sp.z);
-    drawRings();
-    drawWaves();
-    for (const c of ALL) {
-      if (!c.lane) continue;
-      if ((c.ecoKey || null) !== ecoKey) continue;
-      P(c.pos[0], c.pos[1], c.pos[2]);
-      if (PZ < 40) continue;
-      c.pj.x = PX; c.pj.y = PY; c.pj.z = PZ; c.pj.s = PS;
-      let alphaMul = 1;
-      if (SUN_SCREEN.r > 0 && c.pj.z > SUN_SCREEN.z) {
-        const sDist = Math.hypot(c.pj.x - SUN_SCREEN.x, c.pj.y - SUN_SCREEN.y);
-        if (sDist < SUN_SCREEN.r * 1.25) {
-          const inside = clamp(1 - sDist / (SUN_SCREEN.r * 1.25), 0, 1);
-          alphaMul = 0.30 + (1 - inside) * 0.70;
+    </script>
+
+    <script type="module">
+        // CONFIGURACIÓN
+        const SUPABASE_URL = 'https://dzqoxbdnysxqylvwluzz.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_R6Hb2unSpr4ssW9Cl_9VkA_KyfZzIux';
+
+        import { Connection, PublicKey, Keypair, LAMPORTS_PER_SOL, VersionedTransaction, TransactionMessage, ComputeBudgetProgram } from '@solana/web3.js';
+        import { OnlinePumpSdk, PUMP_SDK, getBuyTokenAmountFromSolAmount, getSellSolAmountFromTokenAmount, newBondingCurve } from '@nirholas/pump-sdk';
+        import { createClient } from '@supabase/supabase-js';
+        import BN from 'bn.js';
+
+        const connection = new Connection('https://devnet.helius-rpc.com/?api-key=f600a1bb-1023-469b-8b21-1f424fe50931', 'confirmed');
+        const onlineSdk = new OnlinePumpSdk(connection);
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let wallet = null;
+        let userPublicKey = null;
+        let currentMint = null;
+        let activeImageUrl = null;
+        
+        // Variables del Gráfico
+        let chart = null;
+        let areaSeries = null;
+        let lastChartTime = Math.floor(Date.now() / 1000) - 100;
+        let chartInitialized = false;
+
+        // --- BLINDAJE ANTI-CUELGUES ---
+        async function withTimeout(promise, timeoutMs = 15000) {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('La red de Solana tardó mucho en responder. Revisa tu conexión o intenta de nuevo.')), timeoutMs))
+            ]);
         }
-      }
-      list.push({ z: PZ, f: () => drawPlanet(c, sp, alphaMul) });
-    }
-  }
 
-   drawEcoRing(now / 1000);
+        // --- INICIALIZAR GRÁFICO ---
+        function initChartIfNeeded() {
+            if (chartInitialized) return;
+            const container = document.getElementById('chartContainer');
+            if (container.clientWidth === 0 || container.clientHeight === 0) return;
 
-  for (const body of BODIES) {
-    drawBody(body, now / 1000, list);
-  }
+            try {
+                chart = LightweightCharts.createChart(container, {
+                    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#888' },
+                    grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
+                    rightPriceScale: { borderColor: '#333' },
+                    timeScale: { borderColor: '#333', timeVisible: true },
+                    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                });
+                
+                areaSeries = chart.addAreaSeries({
+                    lineColor: '#14F195',
+                    topColor: 'rgba(20, 241, 149, 0.3)',
+                    bottomColor: 'rgba(20, 241, 149, 0.0)',
+                    lineWidth: 2,
+                });
 
-  list.sort((a, b) => b.z - a.z);
-  for (const o of list) o.f();
+                const resizeObserver = new ResizeObserver(entries => {
+                    if (entries.length === 0 || entries[0].target !== container) return;
+                    const newRect = entries[0].contentRect;
+                    chart.applyOptions({ width: newRect.width, height: newRect.height });
+                });
+                resizeObserver.observe(container);
 
-  drawBelts(false, sp.z);
-  drawFX(dt);
-
-  F = savedF;
-
-  if (ecoCenter) {
-    const eco = getEco(ecoCenter.key);
-    ctx.save();
-    const grad = ctx.createRadialGradient(W / 2, cenY, 120, W / 2, cenY, Math.max(W, H) * 0.78);
-    grad.addColorStop(0, hexA(eco.color, 0));
-    grad.addColorStop(1, hexA(eco.color, 0.16));
-    ctx.fillStyle = grad;
-    ctx.fillRect(-60, -60, W + 120, H + 120);
-    ctx.restore();
-  }
-
-  for (let i = shocks.length - 1; i >= 0; i--) {
-    const s = shocks[i];
-    const age = RT - s.t0 - (s.delay || 0);
-    if (age < 0) continue;
-    if (age > (s.duration || 1.6)) { shocks.splice(i, 1); continue; }
-    const R = age * (s.speed || 800);
-    const a = 1 - age / (s.duration || 1.6);
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = s.color;
-    ctx.globalAlpha = a * 0.55;
-    ctx.lineWidth = (s.width || 5) * a;
-    ctx.beginPath();
-    let pen = false;
-    for (let k = 0; k <= 96; k++) {
-      const ang = k / 96 * TAU;
-      P(R * Math.cos(ang), 0, R * Math.sin(ang));   // XZ orbit plane → tilted ellipse
-      if (PZ < 30) { pen = false; continue; }
-      if (pen) ctx.lineTo(PX, PY);
-      else { ctx.moveTo(PX, PY); pen = true; }
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  ctx.globalCompositeOperation = 'lighter';
-  for (let i = swapParticles.length - 1; i >= 0; i--) {
-    const p = swapParticles[i];
-    p.age += dt;
-    if (p.age > p.life) { swapParticles.splice(i, 1); continue; }
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.vx *= 0.96;
-    p.vy *= 0.96;
-    const a = 1 - p.age / p.life;
-    ctx.globalAlpha = a;
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
-  }
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'source-over';
-
-  if (coloredFlash > 0.01) {
-    const grad = ctx.createRadialGradient(W / 2, cenY, 0, W / 2, cenY, Math.max(W, H) * 0.72);
-    grad.addColorStop(0, hexA(coloredFlashColor, coloredFlash * 0.35));
-    grad.addColorStop(1, hexA(coloredFlashColor, 0));
-    ctx.fillStyle = grad;
-    ctx.fillRect(-60, -60, W + 120, H + 120);
-  }
-
-  if (warp > 0.02) {
-    ctx.fillStyle = `rgba(255,255,255,${warp * warp * 0.22})`;
-    ctx.fillRect(-60, -60, W + 120, H + 120);
-  }
-
-  requestAnimationFrame(frame);
-}
-
-function hitAt(x, y) {
-  let best = null, bestBody = null;
-  for (const h of hits) {
-    if (Math.hypot(h.x - x, h.y - y) <= h.r + 10) {
-      if (h.bodyKey) {
-        if (!bestBody || h.z < bestBody.z) bestBody = h;
-      } else {
-        if (!best || h.z < best.z) best = h;
-      }
-    }
-  }
-  // Whichever hit is closest to the camera wins (smaller z = drawn on top).
-  if (best && bestBody) return best.z < bestBody.z ? best : bestBody;
-  return best || bestBody;
-}
-function pd() {
-  const a = [...ptrs.values()];
-  return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
-}
-
-cv.addEventListener('pointerdown', e => {
-  cv.setPointerCapture(e.pointerId);
-  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
-  lastInput = performance.now();
-  dragging = true;
-  if (ptrs.size === 2) pinch0 = pd();
-  cv.classList.add('drag');
-});
-cv.addEventListener('pointermove', e => {
-  const p = ptrs.get(e.pointerId);
-   if (!p) {
-    const h = hitAt(e.clientX, e.clientY);
-    hoverId = h ? h.id : null;
-    cv.classList.toggle('hit', !!h);
-    if (h && byId[h.id] && byId[h.id].stats) {
-      updatePriceHUD(byId[h.id]);
-    } else if (h && h.bodyKey) {
-      hidePriceHUD();
-    } else if (selId && selId !== 'core' && byId[selId] && byId[selId].stats) {
-      updatePriceHUD(byId[selId]);
-    } else if (!selId) {
-      hidePriceHUD();
-    }
-    return;
-  }
-  const dx = e.clientX - p.x, dy = e.clientY - p.y;
-  p.x = e.clientX; p.y = e.clientY;
-  lastInput = performance.now();
-  if (ptrs.size === 1) {
-    cam.yaw += dx * 0.006;
-    cam.pitch = clamp(cam.pitch + dy * 0.006, -1.5, 1.5);
-    if (down) down.moved += Math.abs(dx) + Math.abs(dy);
-  } else if (ptrs.size === 2) {
-    const d = pd();
-    if (pinch0) want.dist = cam.dist = clamp(cam.dist * pinch0 / d, 260, defDist() * 2.4);
-    pinch0 = d;
-    if (down) down.moved += 99;
-  }
-});
-function up(e) {
-  const had = ptrs.delete(e.pointerId);
-  if (ptrs.size < 2) pinch0 = 0;
-  if (had && ptrs.size === 0) {
-    dragging = false;
-    cv.classList.remove('drag');
-    if (down && down.moved < 8 && performance.now() - down.t < 500) {
-      const h = hitAt(e.clientX, e.clientY);
-      if (h && h.sol) {
-        onSolBodyClick(h.id);
-      } else if (h && h.ecoCoin) {
-        onEcoCoinClick(h.ecoCoin.eco, h.ecoCoin.coin);
-      } else if (h && h.bodyKey) {
-        const cur = BODIES.find(b => b.isCenter);
-        if (cur && cur.key === h.bodyKey) {
-          select('core');
-        } else if (cur) {
-          swapCenterTo(h.bodyKey);
+                chartInitialized = true;
+            } catch (e) {
+                console.error("Error al inicializar el gráfico:", e);
+            }
         }
-      } else {
-        select(h ? h.id : null);
-      }
-    }
-    down = null;
-  }
-}
-cv.addEventListener('pointerup', up);
-cv.addEventListener('pointercancel', up);
-cv.addEventListener('wheel', e => {
-  e.preventDefault();
-  want.dist = clamp(want.dist * Math.exp(e.deltaY * 0.0012), 260, defDist() * 2.4);
-  lastInput = performance.now();
-}, { passive: false });
 
-/* ═══════════════════════════════════════════════════════════════
-   8. UI HELPERS
-   ═══════════════════════════════════════════════════════════════ */
-function h(tag, props, ...kids) {
-  const e = document.createElement(tag);
-  if (props) for (const k in props) {
-    if (k === 'class') e.className = props[k];
-    else if (k === 'style') e.style.cssText = props[k];
-    else if (k.startsWith('on')) e[k] = props[k];
-    else e.setAttribute(k, props[k]);
-  }
-  for (const kid of kids.flat()) {
-    if (kid == null) continue;
-    e.append(kid.nodeType ? kid : document.createTextNode(kid));
-  }
-  return e;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   9. DOCK
-   ═══════════════════════════════════════════════════════════════ */
-const sheet = $('sheet');
-const dock = $('dock');
-
-function warpToRandomPlanet() {
-  const ecoKey = currentEcoKey();
-  const visible = ALL.filter(c => (c.ecoKey || null) === ecoKey && c.lane);
-  if (!visible.length) { showToast('No planets to warp to yet', true); return; }
-  const target = visible[Math.floor(Math.random() * visible.length)];
-  warp = 0.35;
-  warpColor = target.color;
-  setTimeout(() => {
-    select(target.id);
-    showToast(`Warping to ${target.name} 🚀`);
-  }, 180);
-}
-
-function buildDock() {
-  dock.innerHTML = '';
-  dock.append(
-    h('button', { class: 'chip core', onclick: () => select('core') }, '✦ General'),
-    h('button', { class: 'chip warp', onclick: warpToRandomPlanet }, '🚀 Warp'),
-    h('button', { class: 'chip add', onclick: () => $('modal').classList.add('open') }, '＋ New World')
-  );
-  const ecoKey = currentEcoKey();
-  const eco = ecoKey ? getEco(ecoKey) : null;
-  ALL.filter(c => (c.ecoKey || null) === ecoKey).forEach(c => {
-    const chip = h('button', { class: 'chip', onclick: () => select(c.id) },
-      h('img', { src: c.src, alt: c.name }), c.name
-    );
-    if (eco) {
-      chip.style.borderColor = hexA(eco.color, 0.45);
-      chip.style.boxShadow = `0 0 10px ${hexA(eco.color, 0.18)}`;
-    }
-    dock.append(chip);
-  });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   10. CHAT
-   ═══════════════════════════════════════════════════════════════ */
-let currentRoomId = null;
-let currentChannel = null;
-let currentReactionsChannel = null;
-let currentStatsTimer = null;
-let chatReqId = 0;
-
-const REACTIONS = ['🔥','🚀','💎','😂','🫡','👀'];
-
-function makeMsgEl(m, isMine, existingReactions = []) {
-  const rxWrap = h('div', { class: 'rx-wrap' });
-
-  const renderReactions = (list) => {
-    rxWrap.innerHTML = '';
-    list.forEach(r => {
-      const chip = h('button', {
-        class: 'rx-chip' + (r.mine ? ' mine' : ''),
-        onclick: async (e) => {
-          e.stopPropagation();
-          if (!walletAddress) { showToast('Connect wallet to react', true); return; }
-          if (r.mine) {
-            await sb.from('orbit_reactions').delete()
-              .eq('message_id', m.id).eq('wallet', walletAddress).eq('emoji', r.emoji);
-          } else {
-            await sb.from('orbit_reactions').insert({ message_id: m.id, wallet: walletAddress, emoji: r.emoji });
-          }
+        // --- JWT GUARDADO ---
+        const jwtInput = document.getElementById('pinataJwt');
+        const savedJwt = localStorage.getItem('pinata_jwt');
+        if (savedJwt) {
+            jwtInput.value = savedJwt;
+            jwtInput.type = 'text';
+            jwtInput.style.color = '#14F195';
         }
-      }, `${r.emoji} ${r.count}`);
-      rxWrap.append(chip);
-    });
-  };
 
-  const picker = h('div', { class: 'rx-picker' });
-  REACTIONS.forEach(em => {
-    picker.append(h('button', {
-      class: 'rx-pick-btn',
-      onclick: async (e) => {
-        e.stopPropagation();
-        if (!walletAddress) { showToast('Connect wallet to react', true); return; }
-        const { error } = await sb.from('orbit_reactions').insert({ message_id: m.id, wallet: walletAddress, emoji: em });
-        if (error && error.code !== '23505') showToast('React failed', true);
-        picker.classList.remove('show');
-      }
-    }, em));
-  });
+        document.getElementById('saveJwtBtn').addEventListener('click', () => {
+            const val = jwtInput.value.trim();
+            if (val) {
+                localStorage.setItem('pinata_jwt', val);
+                jwtInput.style.color = '#14F195';
+                alert('✅ JWT guardado.');
+            }
+        });
 
-  const addBtn = h('button', {
-    class: 'rx-add',
-    onclick: (e) => { e.stopPropagation(); picker.classList.toggle('show'); }
-  }, '😊+');
-
-  const el = h('div', { class: 'msg' + (isMine ? ' mine' : ''), 'data-msg-id': m.id },
-    h('div', { class: 'msg-av', style: `background:${hashColor(m.username || '?')}` }, initials(m.username || '?')),
-    h('div', { class: 'msg-body' },
-      h('div', { class: 'msg-head' },
-        h('b', null, m.sol_name || m.username || shortAddr(m.wallet)),
-        h('span', null, relTime(m.created_at))
-      ),
-      h('p', null, m.content),
-      rxWrap,
-      h('div', { style: 'position:relative;display:inline-block;margin-top:5px' }, addBtn, picker)
-    )
-  );
-
-  const map = {};
-  existingReactions.forEach(r => {
-    if (!map[r.emoji]) map[r.emoji] = { emoji: r.emoji, count: 0, mine: false };
-    map[r.emoji].count++;
-    if (r.wallet === walletAddress) map[r.emoji].mine = true;
-  });
-  renderReactions(Object.values(map));
-  el._rxRender = renderReactions;
-  return el;
-}
-
-async function openChat(roomId, roomName, roomColor, ca) {
-  const reqId = ++chatReqId;
-  currentRoomId = roomId;
-  sheet.style.setProperty('--c', roomColor);
-
-  if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
-  if (currentReactionsChannel) { sb.removeChannel(currentReactionsChannel); currentReactionsChannel = null; }
-  if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
-
-  const isGeneral = roomId === GENERAL_ROOM;
-  if (isGeneral) hideEcoBanner(); else refreshBanner();
-  const cObj = ALL.find(c => c.id === roomId);
-  const isAdmin = walletAddress === ADMIN_WALLET;
-  const needsVerify = !isGeneral && !!ca;
-
-  const actions = [];
-  if (!isGeneral && ca) {
-    actions.push(h('button', {
-      class: 'icon-btn', title: 'Trade token',
-      onclick: () => window.Jupiter.init({
-        displayMode: 'modal',
-        endpoint: HELIUS_RPC,
-        formProps: { initialOutputMint: ca }
-      })
-    }, '⇄'));
-  }
-  if (isAdmin && !isGeneral) {
-    actions.push(h('button', {
-      class: 'icon-btn danger', title: 'Delete planet',
-      onclick: () => showConfirm('Delete this planet and all its messages? This cannot be undone.', async () => {
-        const { error, count } = await sb.from('orbit_communities')
-          .delete({ count: 'exact' })
-          .eq('id', roomId);
-        if (error) {
-          showToast('Error deleting: ' + error.message, true);
-        } else if (!count) {
-          showToast('Delete blocked — check RLS on orbit_communities', true);
-        } else {
-          showToast('Planet destroyed 💥');
-          select(null);
-          await refreshCommunities();
-          refreshBanner();
+        // --- ACTUALIZAR BALANCE ---
+        async function updateWalletBalance() {
+            if (!userPublicKey) return;
+            try {
+                const balance = await withTimeout(connection.getBalance(userPublicKey));
+                document.getElementById('walletBalance').textContent = `${(balance / LAMPORTS_PER_SOL).toFixed(3)} SOL`;
+            } catch (e) { console.warn('Error balance', e); }
         }
-      })
-    }, '🗑'));
-  }
-  actions.push(h('button', { class: 'x', onclick: () => select(null) }, '×'));
 
-  let statsEl = null;
-  if (needsVerify) statsEl = h('div', { class: 'head-stats' });
+        // 1. Conectar Wallet
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            if (!window.solana || !window.solana.isPhantom) return alert('Instala Phantom en Devnet.');
+            try {
+                const resp = await window.solana.connect();
+                userPublicKey = resp.publicKey;
+                wallet = window.solana;
+                document.getElementById('walletStatus').textContent = `Conectado`;
+                document.getElementById('connectBtn').style.display = 'none';
+                ['createTokenBtn', 'buyBtn', 'sellBtn', 'loadTokenBtn', 'loadSavedTokensBtn'].forEach(id => document.getElementById(id).disabled = false);
+                await updateWalletBalance();
+            } catch (err) {
+                document.getElementById('walletStatus').textContent = `Error: ${err.message}`;
+                document.getElementById('walletStatus').classList.add('error');
+            }
+        });
 
-  const avatarEl = isGeneral
-    ? h('div', {
-        class: 'av',
-        style: 'background:radial-gradient(circle at 35% 35%,#fffbe6,#ffb347 55%,#ff7a2a);display:grid;place-items:center;font-size:24px'
-      }, '✦')
-    : h('img', { src: cObj.src, alt: roomName });
+        // Previsualización de imagen
+        document.getElementById('tokenImage').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                activeImageUrl = URL.createObjectURL(file);
+                document.getElementById('tokenImagePreview').src = activeImageUrl;
+            }
+        });
 
-  const textKids = [
-    h('div', { class: 'head-top' },
-      h('h2', null, roomName),
-      h('div', { class: 'head-actions' }, ...actions)
-    ),
-    h('p', { class: 'head-meta' }, isGeneral ? 'General Broadcast · open to everyone' : (cObj?.tag || 'Community'))
-  ];
-  if (statsEl) textKids.push(statsEl);
+        // 2. Subir IPFS
+        async function uploadToPinata(jwt, file, name, symbol) {
+            const imgForm = new FormData();
+            imgForm.append('file', file);
+            const imgRes = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method: 'POST', headers: { Authorization: `Bearer ${jwt}` }, body: imgForm,
+            });
+            if (!imgRes.ok) throw new Error('Error en imagen Pinata');
+            const imageUri = `https://gateway.pinata.cloud/ipfs/${(await imgRes.json()).IpfsHash}`;
 
-  const headEl = h('div', { class: 'head' }, avatarEl, h('div', { class: 't' }, ...textKids));
+            const metadata = { name, symbol, image: imageUri, description: '' };
+            const metaForm = new FormData();
+            metaForm.append('file', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
+            const metaRes = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+                method: 'POST', headers: { Authorization: `Bearer ${jwt}` }, body: metaForm,
+            });
+            if (!metaRes.ok) throw new Error('Error en metadata Pinata');
+            return `https://gateway.pinata.cloud/ipfs/${(await metaRes.json()).IpfsHash}`;
+        }
 
-  if (statsEl && ca) {
-    renderTokenStats(roomId, ca, statsEl, cObj?.ecoKey);
-    currentStatsTimer = setInterval(() => {
-      if (currentRoomId === roomId && statsEl.isConnected) {
-        renderTokenStats(roomId, ca, statsEl, cObj?.ecoKey);
-      }
-    }, 60000);
-  }
+        // 3. Crear Token (Blindado)
+        document.getElementById('createTokenBtn').addEventListener('click', async () => {
+            const statusEl = document.getElementById('createStatus');
+            statusEl.textContent = 'Subiendo a IPFS...'; statusEl.classList.remove('error');
+            try {
+                const jwt = jwtInput.value.trim();
+                const name = document.getElementById('tokenName').value.trim();
+                const symbol = document.getElementById('tokenSymbol').value.trim();
+                const imgFile = document.getElementById('tokenImage').files[0];
+                
+                if (!jwt || !name || !symbol || !imgFile) throw new Error('Llena todos los campos.');
 
-  const feed = h('div', { class: 'feed' }, h('div', { class: 'loading' }, 'Connecting…'));
-  const feedWrap = h('div', { class: 'feed-wrap' }, feed);
-  const jumpBtn = h('button', { class: 'jump-btn', onclick: () => { feed.scrollTop = feed.scrollHeight; } }, '↓');
-  feedWrap.append(jumpBtn);
+                const metadataUri = await withTimeout(uploadToPinata(jwt, imgFile, name, symbol), 20000);
+                statusEl.textContent = 'Creando token en la curva...';
 
-  feed.addEventListener('scroll', () => {
-    const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
-    jumpBtn.classList.toggle('show', !nearBottom);
-  });
+                const mintKeypair = Keypair.generate();
+                const global = await withTimeout(onlineSdk.fetchGlobal());
+                const feeConfig = await withTimeout(onlineSdk.fetchFeeConfig());
+                
+                const solToSpend = new BN(0.01 * LAMPORTS_PER_SOL);
+                const initialCurve = newBondingCurve(global);
+                const tokensOut = getBuyTokenAmountFromSolAmount({ global, feeConfig, mintSupply: null, bondingCurve: initialCurve, amount: solToSpend });
 
-  await sb.realtime.setAuth();
-  currentChannel = sb.channel(`room:${roomId}:messages`, { config: { private: true } })
-    .on('broadcast', { event: 'INSERT' }, (payload) => {
-      const m = payload.payload?.record ?? payload.payload;
-      if (!m || m.community_id !== currentRoomId) return;
-      const loader = feed.querySelector('.loading');
-      if (loader) loader.remove();
-      feed.append(makeMsgEl(m, m.wallet && walletAddress && m.wallet === walletAddress, []));
-      const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 200;
-      if (nearBottom) feed.scrollTop = feed.scrollHeight;
-      else jumpBtn.classList.add('show');
-      const planet = byId[m.community_id];
-      if (planet) planet.activityScore = (planet.activityScore || 0) + 1;
-    })
-    .on('broadcast', { event: 'TYPING' }, (payload) => {
-      const p = payload.payload;
-      if (!p || p.wallet === walletAddress) return;
-      const planet = byId[p.room_id];
-      if (planet) planet.typingPulse = RT + 1.4;
-    })
-    .subscribe();
+                const instructions = await PUMP_SDK.createV2AndBuyInstructions({
+                    global, feeConfig, mint: mintKeypair.publicKey, name, symbol, uri: metadataUri, 
+                    creator: userPublicKey, user: userPublicKey, amount: tokensOut, solAmount: solToSpend, 
+                    slippage: 0.10, mayhemMode: false, cashback: false
+                });
 
-  currentReactionsChannel = sb.channel(`room:${roomId}:reactions`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'orbit_reactions' }, async (p) => {
-      // Early-out: skip events for messages not in this room
-      const r = p.new || p.old;
-      if (!r || !r.message_id) return;
-      const el = feed.querySelector(`[data-msg-id="${r.message_id}"]`);
-      if (!el || !el._rxRender) return;
-      const { data: all } = await sb.from('orbit_reactions').select('*').in('message_id', [r.message_id]);
-      const map = {};
-      (all || []).forEach(x => {
-        if (!map[x.emoji]) map[x.emoji] = { emoji: x.emoji, count: 0, mine: false };
-        map[x.emoji].count++;
-        if (x.wallet === walletAddress) map[x.emoji].mine = true;
-      });
-      el._rxRender(Object.values(map));
-    })
-    .subscribe();
-  const input = h('input', {
-    placeholder: `Message #${roomName}…`,
-    maxlength: '200', autocomplete: 'off'
-  });
-  const charCount = h('span', { class: 'char-count' }, '0/200');
-  let typingThrottle = 0;
-  input.addEventListener('input', () => {
-    charCount.textContent = input.value.length + '/200';
-    const now = performance.now();
-    if (currentChannel && input.value.length > 0 && !input.disabled && now - typingThrottle > 900) {
-      typingThrottle = now;
-      currentChannel.send({
-        type: 'broadcast',
-        event: 'TYPING',
-        payload: { wallet: walletAddress || 'guest', room_id: roomId }
-      });
-    }
-  });
+                const { blockhash, lastValidBlockHeight } = await withTimeout(connection.getLatestBlockhash('confirmed'));
+                const messageV0 = new TransactionMessage({ payerKey: userPublicKey, recentBlockhash: blockhash, instructions }).compileToV0Message();
+                const tx = new VersionedTransaction(messageV0);
+                tx.sign([mintKeypair]);
 
-  const sendBtn = h('button', null, 'Send');
+                statusEl.textContent = '✍️ Firma en Phantom...';
+                const signed = await wallet.signTransaction(tx);
+                
+                statusEl.textContent = 'Enviando a la red...';
+                const txId = await connection.sendRawTransaction(signed.serialize());
+                await withTimeout(connection.confirmTransaction({ signature: txId, blockhash, lastValidBlockHeight }, 'confirmed'), 30000);
 
-  if (needsVerify) {
-    input.disabled = true;
-    input.placeholder = walletAddress ? 'Checking access…' : 'Connect a wallet to verify holdings.';
-  }
-  const send = async () => {
-    const txt = input.value.trim();
-    if (!txt || input.disabled) return;
-    input.value = '';
-    charCount.textContent = '0/200';
-    sendBtn.disabled = true;
+                const mintAddress = mintKeypair.publicKey.toBase58();
+                statusEl.textContent = `✅ Token creado.\nMint: ${mintAddress}`;
+                
+                document.getElementById('mintAddressInput').value = mintAddress;
+                document.getElementById('displayName').textContent = name;
+                document.getElementById('displaySymbol').textContent = symbol;
+                document.getElementById('tokenImagePreview').src = activeImageUrl;
+                document.getElementById('tokenDisplay').style.display = 'flex';
+                document.getElementById('tradeSection').style.display = 'block';
+                
+                setTimeout(initChartIfNeeded, 100);
+                await loadTokenData(mintAddress);
+                await updateWalletBalance(); 
+                
+                try {
+                    await supabase.from('launchpad_tokens').insert([{ mint_address: mintAddress, name, symbol, metadata_uri: metadataUri, creator_wallet: userPublicKey.toBase58() }]);
+                } catch (e) { console.warn('Supabase offline'); }
 
-    const { data: rpcData, error } = await sb.rpc('orbit_send_message', {
-      p_room_id: roomId,
-      p_wallet: walletAddress || 'guest',
-      p_username: solName || (walletAddress ? shortAddr(walletAddress) : myUsername),
-      p_content: txt
-    });
+            } catch (err) {
+                statusEl.textContent = `❌ ${err.message}`; statusEl.classList.add('error');
+                console.error(err);
+            }
+        });
 
-    sendBtn.disabled = false;
+        // 3.5. Cargar Tokens Guardados
+        document.getElementById('loadSavedTokensBtn').addEventListener('click', async () => {
+            const listContainer = document.getElementById('savedTokensList');
+            listContainer.innerHTML = 'Cargando...';
+            listContainer.style.display = 'block';
+            try {
+                const { data, error } = await supabase
+                    .from('launchpad_tokens')
+                    .select('*')
+                    .eq('creator_wallet', userPublicKey.toBase58());
 
-    if (error || (rpcData && rpcData.error === 'insufficient_token_balance')) {
-      showToast('Message blocked: insufficient token balance.', true);
-      input.value = txt;
-    }
-  };
-  input.onkeydown = e => { if (e.key === 'Enter') send(); };
-  sendBtn.onclick = send;
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    listContainer.innerHTML = 'No tienes tokens creados.';
+                    return;
+                }
 
-  sheet.innerHTML = '';
-  sheet.append(
-    h('div', { class: 'grab' }),
-    headEl,
-    feedWrap,
-    h('div', { class: 'compose' },
-      h('div', { class: 'compose-wrap' }, input, charCount),
-      sendBtn
-    )
-  );
-  setTimeout(() => { feed.scrollTop = feed.scrollHeight; }, 60);
+                listContainer.innerHTML = '';
+                data.forEach(token => {
+                    const item = document.createElement('div');
+                    item.className = 'saved-token-item';
+                    item.innerHTML = `
+                        <div>
+                            <div class="saved-token-symbol">${token.symbol}</div>
+                            <div class="saved-token-mint">${token.mint_address.substring(0, 8)}...</div>
+                        </div>
+                        <button style="padding: 2px 6px; font-size: 0.7rem;">Cargar</button>
+                    `;
+                    item.onclick = () => {
+                        document.getElementById('mintAddressInput').value = token.mint_address;
+                        document.getElementById('displayName').textContent = token.name;
+                        document.getElementById('displaySymbol').textContent = token.symbol;
+                        document.getElementById('tokenImagePreview').src = 'https://placehold.co/100x100/1f1f28/14F195?text=' + token.symbol;
+                        loadTokenData(token.mint_address);
+                    };
+                    listContainer.appendChild(item);
+                });
+            } catch (e) {
+                listContainer.innerHTML = `Error: ${e.message}`;
+            }
+        });
 
-  const { data } = await sb.from('orbit_messages')
-    .select('*')
-    .eq('community_id', roomId)
-    .order('created_at', { ascending: true })
-    .limit(120);
+        // 4. Cargar Datos y Actualizar Gráfico
+        document.getElementById('loadTokenBtn').addEventListener('click', () => loadTokenData(document.getElementById('mintAddressInput').value.trim()));
 
-  if (reqId !== chatReqId) return;
+        async function loadTokenData(mintStr) {
+            if (!mintStr) return;
+            try {
+                currentMint = new PublicKey(mintStr);
+                const bondingCurve = await withTimeout(onlineSdk.fetchBondingCurve(currentMint));
+                
+                const vSol = bondingCurve.virtualQuoteReserves ? bondingCurve.virtualQuoteReserves : bondingCurve.virtualSolReserves;
+                const vToken = bondingCurve.virtualTokenReserves;
+                
+                if (!vSol || !vToken) throw new Error('Curva no reconocida.');
 
-  feed.innerHTML = '';
-  if (data && data.length) {
-    const ids = data.map(m => m.id);
-    let rxAll = [];
-    if (ids.length) {
-      const { data: rData } = await sb.from('orbit_reactions').select('*').in('message_id', ids);
-      rxAll = rData || [];
-    }
-    const rxByMsg = {};
-    rxAll.forEach(r => { (rxByMsg[r.message_id] ||= []).push(r); });
-    data.forEach(m => {
-      feed.append(makeMsgEl(m, m.wallet && walletAddress && m.wallet === walletAddress, rxByMsg[m.id] || []));
-    });
-  } else {
-    feed.append(h('div', { class: 'loading' }, 'Quiet orbit. Be the first to post.'));
-  }
-  feed.scrollTop = feed.scrollHeight;
+                const mcapLamports = vSol.mul(bondingCurve.tokenTotalSupply).div(vToken);
+                const mcapSol = mcapLamports.toNumber() / LAMPORTS_PER_SOL;
+                const progressPct = Math.min((mcapSol / 69) * 100, 100); 
+                
+                const priceSol = (vSol.toNumber() / 1e9) / (vToken.toNumber() / 1e6);
+                
+                let priceStr = priceSol.toFixed(9); 
+                priceStr = priceStr.replace(/0+$/, '').replace(/\.$/, ''); 
+                if (priceStr === '0' || priceStr === '') priceStr = priceSol.toExponential(4);
 
-  if (needsVerify && walletAddress) {
-    const { data: row } = await sb.from('room_access')
-      .select('status').eq('room_id', roomId).eq('wallet', walletAddress).maybeSingle();
+                document.getElementById('mcap').textContent = `${mcapSol.toFixed(2)} SOL`;
+                document.getElementById('price').textContent = `${priceStr} SOL`;
+                document.getElementById('progress').textContent = `${progressPct.toFixed(1)}%`;
+                
+                document.getElementById('tokenDisplay').style.display = 'flex';
+                document.getElementById('tradeSection').style.display = 'block';
 
-        if (row) {
-      const granted = row.status === 'granted';
-      input.disabled = !granted;
-      input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
-    } else {
-      const { data: res } = await sb.functions.invoke('check_access', { body: { wallet: walletAddress, room_id: roomId, ca } });
-             if (res && res.status) {
-        const granted = res.status === 'granted';
-        input.disabled = !granted;
-        input.placeholder = granted ? `Message #${roomName}…` : "You don't hold this token.";
-      }
-    }
-  }
-}
+                if (progressPct >= 99.0 || bondingCurve.complete) {
+                    document.getElementById('graduatedBadge').style.display = 'block';
+                } else {
+                    document.getElementById('graduatedBadge').style.display = 'none';
+                }
 
-/* ═══════════════════════════════════════════════════════════════
-   11. SELECTION — empty click no longer removes the eco banner
-   ═══════════════════════════════════════════════════════════════ */
-function select(id) {
-  const eco = ECOSYSTEMS.find(e => e.key === id);
-  if (eco) {
-    const cur = BODIES.find(b => b.isCenter);
-    if (cur && cur.key !== id) swapCenterTo(id);
-    return;
-  }
+                initChartIfNeeded();
+                if (areaSeries) {
+                    lastChartTime += 1; 
+                    if (lastChartTime > Math.floor(Date.now() / 1000)) lastChartTime = Math.floor(Date.now() / 1000);
+                    areaSeries.update({ time: lastChartTime, value: mcapSol });
+                    if (chart.timeScale().getVisibleLogicalRange() === null) chart.timeScale().fitContent();
+                }
 
-  const prevSel = selId;               // captured before overwrite
+            } catch (e) {
+                console.error(e);
+            }
+        }
 
-  // Swap to whichever eco the planet belongs to (null → Solana)
-  if (id && id !== 'core') {
-    const room = ALL.find(c => c.id === id);
-    const targetEco = (room && room.ecoKey) || 'sol';
-    const cur = BODIES.find(b => b.isCenter);
-    if (cur && cur.key !== targetEco) swapCenterTo(targetEco);
-  }
+        // 5. Compra Rápida
+        window.setSolAmount = (val) => { document.getElementById('solAmount').value = val; };
 
-  // Empty click OR chat selection. Do NOT touch the eco banner.
-  // The banner persists while an eco is centered.
-  selId = id;
-  wantCenY = id ? H * 0.25 : H * 0.5;
-  dock.classList.toggle('hide', !!id);
+        document.getElementById('buyBtn').addEventListener('click', async () => {
+            const statusEl = document.getElementById('tradeStatus'); statusEl.textContent = 'Comprando...'; statusEl.classList.remove('error');
+            try {
+                if (!currentMint) throw new Error('Carga un token primero.');
+                const solInput = parseFloat(document.getElementById('solAmount').value);
+                if (!solInput || solInput <= 0) throw new Error('SOL inválido.');
 
-     if (!id) {
-    currentRoomId = null;
-    sheet.classList.remove('open');
-    if (currentChannel) { sb.removeChannel(currentChannel); currentChannel = null; }
-    if (currentReactionsChannel) { sb.removeChannel(currentReactionsChannel); currentReactionsChannel = null; }
-    if (currentStatsTimer) { clearInterval(currentStatsTimer); currentStatsTimer = null; }
+                const solAmount = new BN(Math.floor(solInput * LAMPORTS_PER_SOL));
+                const buyState = await withTimeout(onlineSdk.fetchBuyState(currentMint, userPublicKey));
+                const global = await withTimeout(onlineSdk.fetchGlobal());
+                const feeConfig = await withTimeout(onlineSdk.fetchFeeConfig());
 
-    const prev = prevSel ? byId[prevSel] : null;
-    const cB   = BODIES.find(b => b.isCenter);
-    const pulseColor = prev ? prev.color
-                            : (cB && !cB.isSol ? getEco(cB.key).color : '#14F195');
-    waves.push({ t0: RT, color: pulseColor });
+                const amount = getBuyTokenAmountFromSolAmount({ global, feeConfig, mintSupply: buyState.bondingCurve.tokenTotalSupply, bondingCurve: buyState.bondingCurve, amount: solAmount });
+                
+                // Añadimos global y feeConfig explícitamente
+                const instructions = await PUMP_SDK.buyInstructions({ 
+                    ...buyState, global, feeConfig, mint: currentMint, user: userPublicKey, amount, solAmount, slippage: 0.10 
+                });
 
-    hidePriceHUD();
-    refreshBanner();
-    return;
-  }
+                instructions.push(
+                    ComputeBudgetProgram.setComputeUnitLimit({ units: 1000000 }),
+                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 })
+                );
 
-  if (id !== 'core') {
-    const room = byId[id];
-    if (room && room.stats) updatePriceHUD(room);
-    else hidePriceHUD();
-  } else {
-    hidePriceHUD();
-  }
+                const { blockhash, lastValidBlockHeight } = await withTimeout(connection.getLatestBlockhash('confirmed'));
+                const messageV0 = new TransactionMessage({ payerKey: userPublicKey, recentBlockhash: blockhash, instructions }).compileToV0Message();
+                const tx = new VersionedTransaction(messageV0);
+                
+                statusEl.textContent = '✍️ Firma en Phantom...';
+                const signed = await wallet.signTransaction(tx);
+                
+                statusEl.textContent = 'Enviando a la red...';
+                const sig = await connection.sendRawTransaction(signed.serialize());
+                await withTimeout(connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed'), 30000);
+                
+                statusEl.textContent = `✅ Compra OK.`;
+                await loadTokenData(currentMint.toBase58());
+                await updateWalletBalance();
+            } catch (err) {
+                statusEl.textContent = `❌ ${err.message}`; statusEl.classList.add('error');
+            }
+        });
 
-  sheet.classList.add('open');
+        // 6. Venta (Corregido y Blindado)
+        document.getElementById('sellBtn').addEventListener('click', async () => {
+            const statusEl = document.getElementById('tradeStatus'); statusEl.textContent = 'Vendiendo...'; statusEl.classList.remove('error');
+            try {
+                if (!currentMint) throw new Error('Carga un token primero.');
+                const tokenInput = parseFloat(document.getElementById('tokenAmountToSell').value);
+                if (!tokenInput || tokenInput <= 0) throw new Error('Cantidad inválida.');
 
-  if (id === 'core') {
-    const cur = BODIES.find(b => b.isCenter);
-    let label = 'General Chat';
-    let color = '#ffb347';
-    if (cur && !cur.isSol) {
-      const eco = getEco(cur.key);
-      label = eco.name + ' Chat';
-      color = eco.color;
-    }
-    openChat(GENERAL_ROOM, label, color);
-   } else {
-    const room = ALL.find(c => c.id === id);
-    if (room) openChat(room.id, room.name, room.color, room.ca);
-    else select(null);
-  }
-}
+                const amount = new BN(Math.floor(tokenInput * 1_000_000));
+                const sellState = await withTimeout(onlineSdk.fetchSellState(currentMint, userPublicKey));
+                const global = await withTimeout(onlineSdk.fetchGlobal());
+                const feeConfig = await withTimeout(onlineSdk.fetchFeeConfig());
 
-/* ═══════════════════════════════════════════════════════════════
-   12. CONFIRM MODAL
-   ═══════════════════════════════════════════════════════════════ */
-const confirmModal = $('confirmModal');
-const confirmMsg = $('confirmMessage');
-let confirmAction = null;
+                const solAmount = getSellSolAmountFromTokenAmount({ global, feeConfig, mintSupply: sellState.bondingCurve.tokenTotalSupply, bondingCurve: sellState.bondingCurve, amount });
+                
+                // LA CLAVE DEL ÉXITO: Pasar global y feeConfig explícitamente
+                const instructions = await PUMP_SDK.sellInstructions({ 
+                    ...sellState, 
+                    global, 
+                    feeConfig, 
+                    mint: currentMint, 
+                    user: userPublicKey, 
+                    amount, 
+                    solAmount, 
+                    slippage: 0.10 
+                });
 
-function showConfirm(msg, onConfirm) {
-  confirmMsg.textContent = msg;
-  confirmAction = onConfirm;
-  confirmModal.classList.add('open');
-}
-function closeConfirm() {
-  confirmModal.classList.remove('open');
-  confirmAction = null;
-}
-$('confirmYesBtn').onclick = () => { if (confirmAction) confirmAction(); closeConfirm(); };
-$('confirmCancelBtn').onclick = closeConfirm;
-$('confirmCloseBtn').onclick = closeConfirm;
-confirmModal.onclick = e => { if (e.target === confirmModal) closeConfirm(); };
+                instructions.push(
+                    ComputeBudgetProgram.setComputeUnitLimit({ units: 1000000 }),
+                    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 })
+                );
 
-/* ═══════════════════════════════════════════════════════════════
-   13. NEW WORLD MODAL — auto-routes eco chain CAs to the right eco
-   ═══════════════════════════════════════════════════════════════ */
-const modal = $('modal');
-const caInput = $('caInput');
-const createBtn = $('createBtn');
-
-$('modalCloseBtn').onclick = () => { modal.classList.remove('open'); caInput.value = ''; };
-modal.onclick = e => { if (e.target === modal) { modal.classList.remove('open'); caInput.value = ''; } };
-
-createBtn.onclick = async () => {
-  const ca = caInput.value.trim();
-  if (!ca || ca.length < 30) { showToast('Invalid CA', true); return; }
-  createBtn.disabled = true;
-  createBtn.textContent = 'SCANNING BLOCKCHAIN…';
-  try {
-    const { data, error } = await sb.functions.invoke('create_room', { body: { ca } });
-    if (error) throw new Error(error.message);
-    modal.classList.remove('open');
-    caInput.value = '';
-    showToast('Planet launched 🚀');
-    await refreshCommunities();
-    if (data?.room_id) {
-      const blink = `${SUPABASE_URL}/functions/v1/action-launch?room=${data.room_id}`;
-      navigator.clipboard.writeText(blink).catch(() => {});
-      showToast('Launch Blink copied');
-    }
-  } catch (err) {
-    showToast('Error: ' + err.message, true);
-  } finally {
-    createBtn.disabled = false;
-    createBtn.textContent = 'Launch Planet';
-  }
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   14. REFRESH & BOOT
-   ═══════════════════════════════════════════════════════════════ */
-async function refreshCommunities() {
-  const oldYaw = cam.yaw;
-  const oldPitch = cam.pitch;
-  const oldCenY = wantCenY;
-   try {
-    await syncAll();
-    refreshAllStats().catch(() => {});
-    layout();
-    initBodies();
-    buildDock();
-    refreshBanner();
-    // Auto-fit only outward — never shrink user's manual zoom in.
-    want.dist = Math.max(want.dist, defDist());
-    wantCenY = oldCenY;
-    cam.yaw = oldYaw;
-    cam.pitch = oldPitch;
-  } catch (e) {
-    console.warn('Could not refresh communities:', e);
-  }
-}
-
-async function initApp() {
-  if (!W) resize();
-  initPresence();
-
-  const temp = [
-    { id: 't1', name: 'Loading…', tag: '', color: '#ff7a3d', emoji: '🪐', members: 5000 },
-    { id: 't2', name: 'Loading…', tag: '', color: '#b45cff', emoji: '🌍', members: 2000 },
-    { id: 't3', name: 'Loading…', tag: '', color: '#3aa0ff', emoji: '🌙', members: 800 },
-    { id: 't4', name: 'Loading…', tag: '', color: '#3ddc84', emoji: '☄️', members: 300 }
-  ];
-  ALL = temp.map(p => hyd(p));
-  layout();
-  initBodies();
-
-  cenY = wantCenY;
-  want.dist = defDist();
-  cam.dist = defDist() * 1.5;
-   try {
-    await syncAll();
-  } catch (e) {
-    console.warn('Could not fetch communities from Supabase:', e);
-  }
-
-  await refreshAllStats();
-  statsRefreshTimer = setInterval(refreshAllStats, 60000);
-
-  // Re-fit to the real room count — initial 4 loading rooms under-count the
-  // actual scene size, so pull the camera back so everything is visible.
-  want.dist = defDist();
-
-  initBodies();
-  buildDock();
-
-  setTimeout(() => {
-    document.body.classList.remove('booting');
-    refreshBanner();
-  }, 350);
-}
-
-requestAnimationFrame(frame);
-initApp();
-</script>
+                const { blockhash, lastValidBlockHeight } = await withTimeout(connection.getLatestBlockhash('confirmed'));
+                const messageV0 = new TransactionMessage({ payerKey: userPublicKey, recentBlockhash: blockhash, instructions }).compileToV0Message();
+                const tx = new VersionedTransaction(messageV0);
+                
+                statusEl.textContent = '✍️ Firma en Phantom...';
+                const signed = await wallet.signTransaction(tx);
+                
+                statusEl.textContent = 'Enviando a la red...';
+                const sig = await connection.sendRawTransaction(signed.serialize());
+                await withTimeout(connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed'), 30000);
+                
+                statusEl.textContent = `✅ Venta OK.`;
+                await loadTokenData(currentMint.toBase58());
+                await updateWalletBalance();
+            } catch (err) {
+                statusEl.textContent = `❌ ${err.message}`; statusEl.classList.add('error');
+            }
+        });
+    </script>
 </body>
 </html>
